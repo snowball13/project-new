@@ -327,7 +327,7 @@ def perform_front_simulation(m, u, v, b, H, f, s, nt, dt, bname, force, energy, 
     cosfdt = np.cos(f*dt)
     sinfdt = np.sin(f*dt)
     m, A, P, w = force(m)
-    plot(P, m, w, 0)
+    plot(b, m, 0)
     for i in xrange(1, nt):
         print(i)
 
@@ -345,7 +345,7 @@ def perform_front_simulation(m, u, v, b, H, f, s, nt, dt, bname, force, energy, 
         v[:] -= dt * s * (m[:, 1] - H/2)
 
         # Plot the results for this timestep
-        plot(P, m, w, i)
+        plot(b, m, i)
 
         # Calculate the energy, to track if it remains sensible
         energies[i,:] = energy(m, u, v, b, P, H)

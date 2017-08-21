@@ -11,7 +11,7 @@ import matplotlib.tri as tri
 N = 500 # number of particles
 nt = 40 # timesteps
 t = 4. # end time
-eps = 0.1
+eps = 1000.0
 L = 1. # length of domain
 H = 1. # height of domain
 f = 1e-4 # coriolis
@@ -24,7 +24,7 @@ rho0 = 1. # density
 bname="results/eady-model/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N,t,nt,eps)
 
 # Array to set up the domian - [xmin, ymin, xmax, ymax]
-bbox = np.array([-L, 0., L, H])
+bbox = np.array([0., 0., 2*L, H])
 
 class Periodic_density_in_x (ma.ma.Density_2):
     def __init__(self, X, f, T, bbox):
@@ -159,13 +159,15 @@ u = np.zeros((N, 2))
 v = np.zeros(N)
 b = np.zeros(N)
 i = 1
-imax = 30
-alpha = 0.1
+imax = 2
+alpha = 0.01
 m_new = m.copy()
-m_new[:, 1] = np.zeros(N)
 while (i < imax):
-    m_new[:, 1] = alpha * (H/2 - force(m)[1][:, 1] / BVfreq) + (1 - alpha) * m[:, 1]
-    if max(abs(m[:, 1] - m_new[:, 1])) < 1e-3:
+    dm = H/2 - force(m)[1][:, 1] / BVfreq
+    m_new[:, 1] = alpha * dm + (1 - alpha) * m[:, 1]
+    residual = np.sum((m[:,1] - dm )**2)**0.5
+    print residual
+    if residual < 1e-4:
         break
     else:
         m[:, 1] = m_new[:, 1]
@@ -186,33 +188,23 @@ colors = np.zeros((N, 3))
 colors[ii,0] = 1.
 colors[jj,1] = 1.
 colors[kk,2] = 1.
-def plot_timestep(P, m, w, colors, bbox, fname, vistype='cells'):
-    if (vistype == 'cells'):
-        plt.cla()
-        plt.scatter(P[ii,0], P[ii,1], s=50, color='red');
-        plt.scatter(P[jj,0], P[jj,1], s=50, color='yellow');
-        plt.scatter(P[kk,0], P[kk,1], s=50, color='blue');
+def plot_timestep(b, m, colors, bbox, fname):
+    x = m[:, 0]
+    z = m[:, 1]
+    triang = tri.Triangulation(x, z)
+    plt.tripcolor(triang, b, shading="flat")
 
-        E = dens.restricted_laguerre_edges(m,w)
-        x,y = draw_voronoi_edges(E)
-        triang = tri.Triangulation(x, y)
-        plt.tripcolor(triang)
-        # plt.plot(x,y,color=[0.5,0.5,0.5],linewidth=0.5,aa=True)
+    x,z = draw_bbox(bbox)
+    plt.plot(x, z, color=[0,0,0], linewidth=2, aa=True)
 
-        x,y = draw_bbox(bbox)
-        plt.plot(x,y,color=[0,0,0],linewidth=2,aa=True)
-
-        ee = 1e-2
-        plt.axis([bbox[0]-ee, bbox[2]+ee, bbox[1]-ee, bbox[3]+ee])
-        ax = pylab.gca()
-        ax.yaxis.set_visible(False)
-        ax.xaxis.set_visible(False)
-        plt.pause(.1)
-        pylab.savefig(fname, bbox_inches='tight', pad_inches = 0)
-    else:
-        img = ma.laguerre_diagram_to_image(dens, m, w, colors, bbox, 500, 500)
-        img.save(fname)
-plot_ts = lambda P, m, w, i: plot_timestep(P, m, w, colors, bbox, '%s/%03d.png' % (bname, i))
+    ee = 1e-2
+    plt.axis([bbox[0]-ee, bbox[2]+ee, bbox[1]-ee, bbox[3]+ee])
+    ax = pylab.gca()
+    ax.yaxis.set_visible(False)
+    ax.xaxis.set_visible(False)
+    plt.pause(.1)
+    pylab.savefig(fname) #, bbox_inches='tight', pad_inches = 0)
+plot_ts = lambda b, m, i: plot_timestep(b, m, colors, bbox, '%s/%03d.png' % (bname, i))
 
 # Execute the timestepping
 perform_front_simulation(m, u, v, b, H, f, s, nt, dt=t/nt, bname=bname,
