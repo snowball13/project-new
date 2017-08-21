@@ -326,7 +326,9 @@ def perform_front_simulation(m, u, v, b, H, f, s, nt, dt, bname, force, energy, 
     energies = np.zeros((nt,1))
     cosfdt = np.cos(f*dt)
     sinfdt = np.sin(f*dt)
-    for i in xrange(nt):
+    m, A, P, w = force(m)
+    plot(P, m, w, 0)
+    for i in xrange(1, nt):
         print(i)
 
         # Execute the time step using a splitting method
