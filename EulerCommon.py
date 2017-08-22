@@ -336,8 +336,9 @@ def perform_front_simulation(m, u, v, b, H, f, s, nt, dt, bname, force, energy, 
         m[:, 0] += (1/f) * (sinfdt * u[:, 0] - (cosfdt - 1) * v)
         m[:, 1] += dt * u[:, 1]
         b[:] -= (sinfdt * v + (cosfdt - 1) * u[:, 0]) * s / f
-        u[:, 0] = cosfdt * u[:, 0] + sinfdt * v
-        v[:] = cosfdt * v + sinfdt * u[:, 0]
+        u_old = u.copy()
+        u[:, 0] = cosfdt * u_old[:, 0] + sinfdt * v
+        v[:] = cosfdt * v - sinfdt * u_old[:, 0]
 
         m, A, P, w = force(m)
         u[:, :] += dt * A
