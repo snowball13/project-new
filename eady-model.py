@@ -21,7 +21,7 @@ g = 10. # gravity
 rho0 = 1. # density
 
 # Path to where to save results (plots saved as series of images)
-bname="results/eady-model/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N,t,nt,eps)
+bname="results/eady-model/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
 
 # Array to set up the domian - [xmin, ymin, xmax, ymax]
 bbox = np.array([0., 0., 2*L, H])
@@ -179,22 +179,13 @@ b[:] = (m[:, 1] - H/2) * BVfreq
 u[:, 0] = - s * (m[:, 1] - H/2) / f # geostrophic balance
 
 # Set up the plot function to give to the timestepping method
-aa = -.5+.33
-bb = -.5+.66
-ii = np.nonzero(m[:,0] > bb);
-jj = np.nonzero((m[:,0] <= bb) & (m[:,0] > aa));
-kk = np.nonzero(m[:,0] <= aa);
-colors = np.zeros((N, 3))
-colors[ii,0] = 1.
-colors[jj,1] = 1.
-colors[kk,2] = 1.
-def plot_timestep(b, m, colors, bbox, fname):
+def plot_timestep(b, m, bbox, fname):
     x = m[:, 0]
     z = m[:, 1]
     triang = tri.Triangulation(x, z)
     plt.tripcolor(triang, b, shading="flat")
 
-    x,z = draw_bbox(bbox)
+    x, z = draw_bbox(bbox)
     plt.plot(x, z, color=[0,0,0], linewidth=2, aa=True)
 
     ee = 1e-2
@@ -204,7 +195,7 @@ def plot_timestep(b, m, colors, bbox, fname):
     ax.xaxis.set_visible(False)
     plt.pause(.1)
     pylab.savefig(fname) #, bbox_inches='tight', pad_inches = 0)
-plot_ts = lambda b, m, i: plot_timestep(b, m, colors, bbox, '%s/%03d.png' % (bname, i))
+plot_ts = lambda b, m, i: plot_timestep(b, m, bbox, '%s/%03d.png' % (bname, i))
 
 # Execute the timestepping
 perform_front_simulation(m, u, v, b, H, f, s, nt, dt=t/nt, bname=bname,
