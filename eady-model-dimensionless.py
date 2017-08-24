@@ -23,11 +23,11 @@ rho0 = 1. # density
 # Dimension parameters and rescaling
 u0 = 0.1 * H * np.sqrt(BVfreq2)
 b0 = H * BVfreq2
-s = s * b0 / L # Dimensionless vertical gradient of b
-t = t * L / u0 # Dimensionless time
+s = s * L / b0 # Dimensionless vertical gradient of b
+t = t * u0 / L # Dimensionless time
 
 # Derived Constants
-Ro = u0 / (L * f) # Rosby number
+Ro = u0 / (L * f) # Rosby number
 Fr = u0 / (np.sqrt(BVfreq2) * H) # Froude number
 
 # Path to where to save results (plots saved as series of images)
@@ -167,7 +167,7 @@ def energy(m, u, v, b, P, H):
 # for m[:, 1] to achieve hydrostatic and geostrophic balance
 i = 1
 imax = 30
-alpha = 0.01
+alpha = 0.1
 C = L / (H * Fr**2)
 m_new = m.copy()
 while (i < imax):
@@ -175,7 +175,7 @@ while (i < imax):
     m_new[:, 1] = alpha * m[:, 1] + (1 - alpha) * dm
     residual = np.sqrt(np.sum((m[:,1] - dm)**2))
     print "residual =", residual
-    if residual < 1e-4:
+    if residual < 1e-3:
         break
     else:
         m[:, 1] = m_new[:, 1]
@@ -211,37 +211,60 @@ plot_ts = lambda b, m, i: plot_timestep(b, m, bbox, '%s/%03d.png' % (bname, i))
 ###
 def perform_front_simulation_dimless(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
                                      bname, force, energy, plot):
-   ensure_dir(bname)
-   energies = np.zeros((nt, 1))
-   cosDtOverRo = np.cos(dt/Ro)
-   sinDtOverRo = np.sin(dt/Ro)
-   m, A, P, w = force(m)
-   plot(b, m, 0)
-   for i in xrange(1, nt):
-       print i
+    ensure_dir(bname)
+    energies = np.zeros((nt, 1))
+    rms_v = np.zeros(nt)
+    N = v.shape[0]
+    cosDtOverRo = np.cos(dt/Ro)
+    sinDtOverRo = np.sin(dt/Ro)
 
-       # Execute the time step using a splitting method
-       # Possible sign errors
-       m[:, 0] += Ro * (sinDtOverRo * u[:, 0] - (cosDtOverRo - 1) * v)
-       m[:, 1] += dt * u[:, 1] * L / H
-       b[:] -= (sinDtOverRo * v + (cosDtOverRo - 1) * u[:, 0]) * s * Ro
-       u_old = u.copy()
-       u[:, 0] = cosDtOverRo * u_old[:, 0] + sinDtOverRo * v
-       v[:] = cosDtOverRo * v - sinDtOverRo * u_old[:, 0]
+    # Plot and calculate calues for the initial conditions
+    m, A, P, w = force(m)
+    # plot(b, m, 0)
+    energies[0, :] = energy(m, u, v, b, P, H)
+    print "initial energy =", energies[0, :]
+    rms_v[0] = np.sqrt(np.sum(v**2)/N)
 
-       m, A, P, w = force(m)
-       u[:, :] += dt * A
-       u[:, 1] += dt * b * L / (H * Fr**2)
-       v[:] -= dt * (m[:, 1] - 0.5) * s / Fr**2
+    # Timestepping
+    for i in xrange(1, nt):
 
-       # Plot the results for this timestep
-       plot(b, m, i)
+        print i
 
-       # Calculate the energy, to track if it remains sensible
-       energies[i,:] = energy(m, u, v, b, P, H)
-       print energies[i,:]
+        # Execute the time step using a splitting method
+        # Possible sign errors
+        m[:, 0] += Ro * (sinDtOverRo * u[:, 0] - (cosDtOverRo - 1) * v)
+        m[:, 1] += dt * u[:, 1] * L / H
+        b[:] -= (sinDtOverRo * v + (cosDtOverRo - 1) * u[:, 0]) * s * Ro
+        u_old = u.copy()
+        u[:, 0] = cosDtOverRo * u_old[:, 0] + sinDtOverRo * v
+        v[:] = cosDtOverRo * v - sinDtOverRo * u_old[:, 0]
+
+        m, A, P, w = force(m)
+        u[:, :] += dt * A
+        u[:, 1] += dt * b * L / (H * Fr**2)
+        v[:] -= dt * (m[:, 1] - 0.5) * s / Fr**2
+
+        # Plot the results for this timestep
+        # plot(b, m, i)
+
+        # Calculate the energy, to track if it remains sensible
+        energies[i, :] = energy(m, u, v, b, P, H)
+        print "energy =", energies[i, :]
+
+        # Calculate RMS of v
+        rms_v[i] = np.sqrt(np.sum(v**2)/N)
+
+    return rms_v
 
 
 # Execute the timestepping
-perform_front_simulation_dimless(m, u, v, b, L, H, s, Ro, Fr, nt, dt=t/nt,
+rms_v = perform_front_simulation_dimless(m, u, v, b, L, H, s, Ro, Fr, nt, dt=t/nt,
                         bname=bname, force=force, energy=energy, plot=plot_ts)
+
+time_array = np.linspace(0, t * L / u0, nt)
+rms_v = rms_v * u0
+plt.plot(time_array, rms_v)
+pylab.savefig('%s/v.png' % bname)
+plt.clf()
+plt.plot(time_array, np.log(rms_v))
+pylab.savefig('%s/v_log.png' % bname)
