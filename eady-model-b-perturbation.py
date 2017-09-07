@@ -9,8 +9,8 @@ import matplotlib.tri as tri
 
 # Constants and parameters
 N = 500 # number of particles
-nt = 10000 # timesteps
-t = 60 * 10  # end time
+nt = 4000 # timesteps
+t = 60 * 60  # end time
 L = 2 * 1e6 # length of domain
 H = 1e4 # height of domain
 f = 1e-4 # coriolis
@@ -30,7 +30,7 @@ Ro = u0 / (L * f) # Rosby number
 Fr = u0 / (np.sqrt(BVfreq2) * H) # Froude number
 
 # Epsilon parameter (dimensional units of ms)
-eps = 100
+eps = t/nt
 
 # Path to where to save results (plots saved as series of images)
 bname="results/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
@@ -221,11 +221,11 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
         # print i
 
         # Execute the time step using a splitting method
-        m[:, 0] += Ro * (sinDtOverRo * u[:, 0] - (cosDtOverRo - 1) * v)
-        m[:, 1] += dt * u[:, 1] * L / H
-        b[:] -= (sinDtOverRo * v + (cosDtOverRo - 1) * u[:, 0]) * s * Ro
         u_old = u.copy()
+        m[:, 0] += Ro * (sinDtOverRo * u_old[:, 0] - (cosDtOverRo - 1) * v)
+        m[:, 1] += dt * u_old[:, 1] * L / H
         u[:, 0] = cosDtOverRo * u_old[:, 0] + sinDtOverRo * v
+        b[:] -= (sinDtOverRo * v + (cosDtOverRo - 1) * u_old[:, 0]) * s * Ro
         v[:] = cosDtOverRo * v - sinDtOverRo * u_old[:, 0]
 
         m, A, P, w = force(m)
@@ -233,14 +233,14 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
         u[:, 0] += dt * A[:, 0]
         u[:, 1] = dt * A[:, 1] + rootAlpha * sinDtRootAlpha * b + cosDtRootAlpha * u_old[:, 1]
         v[:] -= dt * (m[:, 1] - 0.5) * s / Fr**2
-        b[:] = cosDtRootAlpha * b - sinDtRootAlpha * u_old[:, 1] / sinDtRootAlpha
+        b[:] = cosDtRootAlpha * b - sinDtRootAlpha * u_old[:, 1] / rootAlpha
 
         # Plot the results for this timestep
-        # plot(b, m, i)
+        plot(b, m, i)
 
         # Calculate the energy, to track if it remains sensible
-        energies[i, :] = energy(m, u, v, b, P, H)
-        # print "energy =", energies[i, :]
+        energies[i, :] = energy(m, u, v, b, m, H)
+        print "energy =", energies[i, :]
 
         # Calculate RMS of v
         rms_v[i] = np.sqrt(np.sum(v**2)/N)
@@ -258,5 +258,5 @@ plt.clf()
 plt.plot(time_array, rms_v)
 pylab.savefig('%s/v.png' % bname)
 plt.clf()
-plt.plot(np.log(time_array), np.log(rms_v))
+plt.plot(time_array, np.log(rms_v))
 pylab.savefig('%s/v_log.png' % bname)
