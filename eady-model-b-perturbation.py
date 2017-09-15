@@ -9,8 +9,8 @@ import matplotlib.tri as tri
 
 # Constants and parameters
 N = 500 # number of particles
-nt = 4000 # timesteps
-t = 60 * 60  # end time
+nt = 500 # timesteps
+t = 60 * 60 * 24  # end time
 L = 2 * 1e6 # length of domain
 H = 1e4 # height of domain
 f = 1e-4 # coriolis
@@ -29,8 +29,8 @@ t = t * u0 / L # Dimensionless time
 Ro = u0 / (L * f) # Rosby number
 Fr = u0 / (np.sqrt(BVfreq2) * H) # Froude number
 
-# Epsilon parameter (dimensional units of ms)
-eps = t/nt
+# Epsilon parameter (dimensional units of s)
+eps = 0.1
 
 # Path to where to save results (plots saved as series of images)
 bname="results/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
@@ -150,7 +150,10 @@ m = ma.optimized_sampling_2(dens,N,niter=2)
 def force(m):
     m = dens.to_fundamental_domain(m)
     P, w = project_on_incompressible2(dens, m)
-    return m, 1./(eps*eps)*(P-m), P, w
+    pressureGradient = 1./(eps*eps)*(P-m)
+    pressureGradient[:, 0] = pressureGradient[:, 0] / L
+    pressureGradient[:, 1] = pressureGradient[:, 1] / H
+    return m, pressureGradient, P, w
 
 def sqmom(V):
     return np.sum(V[:,0] * V[:,0] + V[:,1] * V[:,1])
@@ -159,7 +162,7 @@ def energy(m, u, v, b, P, H):
     # Need density?
     return (.5 * sqmom(u)/N
             + .5 * np.sum(v[:] * v[:])/N
-            - np.sum(b[:] * (m[:, 1] - 0.5))/N
+            - np.sum((b[:] + m[:, 1] - 0.5) * (m[:, 1] - 0.5))/N
             + .5/(eps*eps) * sqmom(m-P)/N)
 
 
@@ -172,11 +175,15 @@ b = np.zeros(N)
 u[:, 0] = - s * Ro * (m[:, 1] - 0.5) / Fr**2 # geostrophic balance
 
 # Set up the plot function to give to the timestepping method
-def plot_timestep(b, m, bbox, fname):
+def plot_timestep(i, b, m, bbox, fname):
+    plt.cla()
+
     x = m[:, 0]
     z = m[:, 1]
     triang = tri.Triangulation(x, z)
     plt.tripcolor(triang, b, shading="flat")
+    if i == 1:
+        plt.colorbar()
 
     x, z = draw_bbox(bbox)
     plt.plot(x, z, color=[0,0,0], linewidth=2, aa=True)
@@ -188,24 +195,25 @@ def plot_timestep(b, m, bbox, fname):
     ax.xaxis.set_visible(False)
     plt.pause(.1)
     pylab.savefig(fname) #, bbox_inches='tight', pad_inches = 0)
-plot_ts = lambda b, m, i: plot_timestep(b, m, bbox, '%s/%03d.png' % (bname, i))
+plot_ts = lambda b, m, i: plot_timestep(i, b, m, bbox, '%s/%03d.png' % (bname, i))
 
 ###
 def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
-                                     bname, force, energy, plot):
+                                     bname, force, energy, plot, projection=True):
     ensure_dir(bname)
     energies = np.zeros((nt, 1))
     rms_v = np.zeros(nt)
     N = v.shape[0]
     cosDtOverRo = np.cos(dt/Ro)
     sinDtOverRo = np.sin(dt/Ro)
-    rootAlpha = np.sqrt(L / (H * Fr**2))
+    alpha = L / (H * Fr**2)
+    rootAlpha = np.sqrt(alpha)
     cosDtRootAlpha = np.cos(dt*rootAlpha)
     sinDtRootAlpha = np.sin(dt*rootAlpha)
 
     # Plot and calculate values for the initial conditions
     m, A, P, w = force(m)
-    # plot(b, m, 0)
+    plot(u[:, 0], m, 0)
     energies[0, :] = energy(m, u, v, b, P, H)
     print "initial energy =", energies[0, :]
     rms_v[0] = np.sqrt(np.sum(v**2)/N)
@@ -218,28 +226,56 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
         if (i % 100 == 0):
             print i
             print "energy =", energies[i-1, :]
-        # print i
+        print i
 
         # Execute the time step using a splitting method
-        u_old = u.copy()
-        m[:, 0] += Ro * (sinDtOverRo * u_old[:, 0] - (cosDtOverRo - 1) * v)
-        m[:, 1] += dt * u_old[:, 1] * L / H
-        u[:, 0] = cosDtOverRo * u_old[:, 0] + sinDtOverRo * v
-        b[:] -= (sinDtOverRo * v + (cosDtOverRo - 1) * u_old[:, 0]) * s * Ro
-        v[:] = cosDtOverRo * v - sinDtOverRo * u_old[:, 0]
+        if projection:
+            u_old = u.copy()
+            v_old = v.copy()
+            m[:, 0] += Ro * (sinDtOverRo * u_old[:, 0] - (cosDtOverRo - 1.) * v_old)
+            u[:, 0] = sinDtOverRo * v_old + cosDtOverRo * u_old[:, 0]
+            v[:] = cosDtOverRo * v_old - sinDtOverRo * u_old[:, 0]
+            b[:] -= (sinDtOverRo * v_old + (cosDtOverRo - 1) * u_old[:, 0]) * s * Ro
 
-        m, A, P, w = force(m)
-        u_old = u.copy()
-        u[:, 0] += dt * A[:, 0]
-        u[:, 1] = dt * A[:, 1] + rootAlpha * sinDtRootAlpha * b + cosDtRootAlpha * u_old[:, 1]
-        v[:] -= dt * (m[:, 1] - 0.5) * s / Fr**2
-        b[:] = cosDtRootAlpha * b - sinDtRootAlpha * u_old[:, 1] / rootAlpha
+            u_old = u.copy()
+            m_old = m.copy()
+            m[:, 1] += (sinDtRootAlpha * u_old[:, 1] / rootAlpha - (cosDtRootAlpha - 1.) * b)
+            u[:, 1] = sinDtRootAlpha * rootAlpha * b + cosDtRootAlpha * u_old[:, 1]
+            v[:] -= dt * (m_old[:, 1] - 0.5) * s / Fr**2
+            v[:] += ((sinDtRootAlpha * b / rootAlpha + dt * b - (cosDtRootAlpha - 1.) * u_old[:, 1] / alpha)
+                    * (s / Fr**2) * (L / H))
+            b[:] = cosDtRootAlpha * b - sinDtRootAlpha * u_old[:, 1] / rootAlpha
+
+            m, A, P, w = force(m)
+            du = (P - m) / dt
+            # m[:, :] = P
+            u[:, :] += A * dt
+
+        else:
+            u_old = u.copy()
+            m[:, 0] += Ro * (sinDtOverRo * u_old[:, 0] - (cosDtOverRo - 1) * v)
+            m[:, 1] += dt * u_old[:, 1] * L / H
+            u[:, 0] = cosDtOverRo * u_old[:, 0] + sinDtOverRo * v
+            b[:] -= (sinDtOverRo * v + (cosDtOverRo - 1) * u_old[:, 0]) * s * Ro
+            v[:] = cosDtOverRo * v - sinDtOverRo * u_old[:, 0]
+            print "max = ", b.max()
+            print "min = ", b.min()
+
+            m, A, P, w = force(m)
+            u_old = u.copy()
+            beta = 0.
+            u[:, 0] += beta * dt * A[:, 0]
+            u[:, 1] = beta * dt * A[:, 1] + rootAlpha * sinDtRootAlpha * b + cosDtRootAlpha * u_old[:, 1]
+            v[:] -= dt * (m[:, 1] - 0.5) * s / Fr**2
+            b[:] = cosDtRootAlpha * b - sinDtRootAlpha * u_old[:, 1] / rootAlpha
+            print "max = ", b.max()
+            print "min = ", b.min()
 
         # Plot the results for this timestep
-        plot(b, m, i)
+        plot(u[:, 0], m, i)
 
         # Calculate the energy, to track if it remains sensible
-        energies[i, :] = energy(m, u, v, b, m, H)
+        energies[i, :] = energy(m, u, v, b, P, H)
         print "energy =", energies[i, :]
 
         # Calculate RMS of v
@@ -250,7 +286,7 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
 
 # Execute the timestepping
 rms_v = perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt=t/nt,
-                        bname=bname, force=force, energy=energy, plot=plot_ts)
+                        bname=bname, force=force, energy=energy, plot=plot_ts, projection=False)
 
 time_array = np.linspace(0, t * L / u0, nt)
 rms_v = rms_v * u0
