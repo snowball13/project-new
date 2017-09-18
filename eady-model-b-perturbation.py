@@ -9,8 +9,8 @@ import matplotlib.tri as tri
 
 # Constants and parameters
 N = 500 # number of particles
-nt = 500 # timesteps
-t = 60 * 60 * 24  # end time
+nt = 100 # timesteps
+t = 60 * 60 # end time
 L = 2 * 1e6 # length of domain
 H = 1e4 # height of domain
 f = 1e-4 # coriolis
@@ -28,9 +28,10 @@ t = t * u0 / L # Dimensionless time
 # Derived Constants
 Ro = u0 / (L * f) # Rosby number
 Fr = u0 / (np.sqrt(BVfreq2) * H) # Froude number
+Bu = Ro/Fr
 
 # Epsilon parameter (dimensional units of s)
-eps = 0.1
+eps = 0.01
 
 # Path to where to save results (plots saved as series of images)
 bname="results/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
@@ -169,21 +170,31 @@ def energy(m, u, v, b, P, H):
 # ***** simulation *****
 
 # Setup initial conditions.
+# We "kick" b with a small perturbation to induce the instability
 u = np.zeros((N, 2))
 v = np.zeros(N)
 b = np.zeros(N)
+pi = np.pi
+def Z(z):
+    return Bu * (z - 0.5)
+def coth(x):
+    return np.cosh(x) / np.sinh(x)
+def n():
+    return Bu**(-1) * np.sqrt((Bu*0.5 - np.tanh(Bu*0.5)) * (coth(Bu*0.5)-Bu*0.5))
+a = -7.5
+b[:] = a / (np.sqrt(BVfreq2) * H) * (- (1.-Bu*0.5*coth(Bu*0.5)) * np.sinh(Z(m[:, 1])) * np.cos(pi*m[:, 0])
+                                     - n() * Bu * np.cosh(Z(m[:, 1])) * np.sin(pi*m[:, 0]))
 u[:, 0] = - s * Ro * (m[:, 1] - 0.5) / Fr**2 # geostrophic balance
 
 # Set up the plot function to give to the timestepping method
 def plot_timestep(i, b, m, bbox, fname):
-    plt.cla()
+    plt.clf()
 
     x = m[:, 0]
     z = m[:, 1]
     triang = tri.Triangulation(x, z)
     plt.tripcolor(triang, b, shading="flat")
-    if i == 1:
-        plt.colorbar()
+    plt.colorbar()
 
     x, z = draw_bbox(bbox)
     plt.plot(x, z, color=[0,0,0], linewidth=2, aa=True)
@@ -197,9 +208,63 @@ def plot_timestep(i, b, m, bbox, fname):
     pylab.savefig(fname) #, bbox_inches='tight', pad_inches = 0)
 plot_ts = lambda b, m, i: plot_timestep(i, b, m, bbox, '%s/%03d.png' % (bname, i))
 
-###
+
+# Runge-Kutta 4 method
+def f(m, u, v, b, L, H, s, Ro, Fr, force):
+    m, A, P, w = force(m)
+    alpha = L / (H * Fr**2)
+    N = v.shape[0]
+    k = np.zeros(N*6)
+    k[:N] = u[:, 0]
+    k[N:2*N] = u[:, 1] * L / H
+    k[2*N:3*N] = v / Ro + A[:, 0]
+    k[3*N:4*N] = alpha * b + A[:, 1]
+    k[4*N:5*N] = - u[:, 0] / Ro - (m[:, 1] - 0.5) * s / Fr**2
+    k[5*N:] = - s * v - u[:, 1]
+    return k
+
+def RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force):
+    m_interim = m.copy()
+    u_interim = u.copy()
+    v_interim = v.copy()
+    b_interim = b.copy()
+    N = v.shape[0]
+
+    k1 = f(m, u, v, b, L, H, s, Ro, Fr, force)
+    m_interim[:, 0] = m[:, 0] + k1[:N] * dt / 2
+    m_interim[:, 1] = m[:, 1] + k1[N:2*N] * dt / 2
+    u_interim[:, 0] = u[:, 0] + k1[2*N:3*N] * dt / 2
+    u_interim[:, 1] = u[:, 1] + k1[3*N:4*N] * dt / 2
+    v_interim[:] = v[:] + k1[4*N:5*N] * dt / 2
+    b_interim[:] = b[:] + k1[5*N:] * dt / 2
+    k2 = f(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
+    m_interim[:, 0] = m[:, 0] + k2[:N] * dt / 2
+    m_interim[:, 1] = m[:, 1] + k2[N:2*N] * dt / 2
+    u_interim[:, 0] = u[:, 0] + k2[2*N:3*N] * dt / 2
+    u_interim[:, 1] = u[:, 1] + k2[3*N:4*N] * dt / 2
+    v_interim[:] = v[:] + k2[4*N:5*N] * dt / 2
+    b_interim[:] = b[:] + k2[5*N:] * dt / 2
+    k3 = f(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
+    m_interim[:, 0] = m[:, 0] + k3[:N] * dt
+    m_interim[:, 1] = m[:, 1] + k3[N:2*N] * dt
+    u_interim[:, 0] = u[:, 0] + k3[2*N:3*N] * dt
+    u_interim[:, 1] = u[:, 1] + k3[3*N:4*N] * dt
+    v_interim[:] = v[:] + k3[4*N:5*N] * dt
+    b_interim[:] = b[:] + k3[5*N:] * dt
+    k4 = f(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
+
+    x = (k1 + 2*k2 + 2*k3 + k4) * dt / 6
+    m[:, 0] += x[:N]
+    m[:, 1] += x[N:2*N]
+    u[:, 0] += x[2*N:3*N]
+    u[:, 1] += x[3*N:4*N]
+    v[:] += x[4*N:5*N]
+    b[:] += x[5*N:]
+    return m, u, v, b
+
+# Simulation / timestepping
 def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
-                                     bname, force, energy, plot, projection=True):
+                                     bname, force, energy, plot, method="RK4"):
     ensure_dir(bname)
     energies = np.zeros((nt, 1))
     rms_v = np.zeros(nt)
@@ -213,7 +278,7 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
 
     # Plot and calculate values for the initial conditions
     m, A, P, w = force(m)
-    plot(u[:, 0], m, 0)
+    plot(b, m, 0)
     energies[0, :] = energy(m, u, v, b, P, H)
     print "initial energy =", energies[0, :]
     rms_v[0] = np.sqrt(np.sum(v**2)/N)
@@ -226,10 +291,10 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
         if (i % 100 == 0):
             print i
             print "energy =", energies[i-1, :]
-        print i
+        # print i
 
         # Execute the time step using a splitting method
-        if projection:
+        if method == "projection":
             u_old = u.copy()
             v_old = v.copy()
             m[:, 0] += Ro * (sinDtOverRo * u_old[:, 0] - (cosDtOverRo - 1.) * v_old)
@@ -251,7 +316,7 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
             # m[:, :] = P
             u[:, :] += A * dt
 
-        else:
+        elif method == "incompressible":
             u_old = u.copy()
             m[:, 0] += Ro * (sinDtOverRo * u_old[:, 0] - (cosDtOverRo - 1) * v)
             m[:, 1] += dt * u_old[:, 1] * L / H
@@ -271,8 +336,15 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
             print "max = ", b.max()
             print "min = ", b.min()
 
+        elif method == "RK4":
+            m, u, v, b = RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force)
+
+        else:
+            print "Error - Invalid method selected"
+            break
+
         # Plot the results for this timestep
-        plot(u[:, 0], m, i)
+        plot(b, m, i)
 
         # Calculate the energy, to track if it remains sensible
         energies[i, :] = energy(m, u, v, b, P, H)
@@ -284,10 +356,11 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
     return rms_v
 
 
-# Execute the timestepping
+# Execute the simulation
 rms_v = perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt=t/nt,
-                        bname=bname, force=force, energy=energy, plot=plot_ts, projection=False)
+                        bname=bname, force=force, energy=energy, plot=plot_ts, method="RK4")
 
+# Plot the rootmeansquare error of v
 time_array = np.linspace(0, t * L / u0, nt)
 rms_v = rms_v * u0
 plt.clf()
