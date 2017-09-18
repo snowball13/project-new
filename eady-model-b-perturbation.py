@@ -19,6 +19,12 @@ BVfreq2 = 2.5e-5 # Brunt-Vaisala frequency, squared.
 g = 10. # gravity
 rho0 = 1. # density
 
+# Epsilon parameter (dimensional units of s)
+eps = 0.01
+
+# Path to where to save results (plots saved as series of images)
+bname="results/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
+
 # Dimension parameters and rescaling
 u0 = 0.1 * H * np.sqrt(BVfreq2)
 b0 = H * BVfreq2
@@ -28,13 +34,7 @@ t = t * u0 / L # Dimensionless time
 # Derived Constants
 Ro = u0 / (L * f) # Rosby number
 Fr = u0 / (np.sqrt(BVfreq2) * H) # Froude number
-Bu = Ro/Fr
-
-# Epsilon parameter (dimensional units of s)
-eps = 0.01
-
-# Path to where to save results (plots saved as series of images)
-bname="results/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
+Bu = Ro/Fr # Burger's number
 
 # Array to set up the domian - [xmin, ymin, xmax, ymax]
 bbox = np.array([0., 0., 1., 1.])
@@ -187,7 +187,7 @@ b[:] = a / (np.sqrt(BVfreq2) * H) * (- (1.-Bu*0.5*coth(Bu*0.5)) * np.sinh(Z(m[:,
 u[:, 0] = - s * Ro * (m[:, 1] - 0.5) / Fr**2 # geostrophic balance
 
 # Set up the plot function to give to the timestepping method
-def plot_timestep(i, b, m, bbox, fname):
+def plot_timestep(i, b, m, bbox, fname, show=False):
     plt.clf()
 
     x = m[:, 0]
@@ -204,7 +204,8 @@ def plot_timestep(i, b, m, bbox, fname):
     ax = pylab.gca()
     ax.yaxis.set_visible(False)
     ax.xaxis.set_visible(False)
-    plt.pause(.1)
+    if show:
+        plt.pause(.1)
     pylab.savefig(fname) #, bbox_inches='tight', pad_inches = 0)
 plot_ts = lambda b, m, i: plot_timestep(i, b, m, bbox, '%s/%03d.png' % (bname, i))
 
