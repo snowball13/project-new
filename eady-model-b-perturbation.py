@@ -32,10 +32,10 @@ Bu = Ro/Fr # Burger's number
 
 # Epsilon parameter (dimensional units of s)
 eps = t/nt
-print "eps =", eps
 
-# Path to where to save results (plots saved as series of images)
-bname="results/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, endt, nt, eps)
+# Path to where to save results (plots saved as series of images, and energies/RMS of v)
+plot_name = "results/plots/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, endt, nt, eps)
+energy_name = "results/energies/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, endt, nt, eps)
 
 # Array to set up the domian - [xmin, ymin, xmax, ymax]
 bbox = np.array([0., 0., 1., 1.])
@@ -160,7 +160,7 @@ def force(m):
 def sqmom(V):
     return np.sum(V[:,0] * V[:,0] + V[:,1] * V[:,1])
 
-def energy(m, u, v, b, P, H):
+def energy(m, u, v, b, P):
     # Need density?
     return (.5 * sqmom(u)/N
             + .5 * np.sum(v[:] * v[:])/N
@@ -208,8 +208,14 @@ def plot_timestep(i, b, m, bbox, fname, show=False):
     if show:
         plt.pause(.1)
     pylab.savefig(fname) #, bbox_inches='tight', pad_inches = 0)
-plot_ts = lambda b, m, i: plot_timestep(i, b, m, bbox, '%s/%03d.png' % (bname, i))
+plot_ts = lambda b, m, i: plot_timestep(i, b, m, bbox, '%s/%03d.png' % (plot_name, i))
 
+# Set up the write to file function to give to the timestepping method
+def write_values(energy, rms_v, bname):
+    with open('%s/energies.txt' % (bname), "a") as myfile:
+        # separated by a comma (for easy handling later if required)
+        myfile.write("%s," % energy)
+        myfile.write("%s\n" % rms_v)
 
 # Runge-Kutta 4 method
 def f(m, u, v, b, L, H, s, Ro, Fr, force):
@@ -267,8 +273,14 @@ def RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force):
 
 # Simulation / timestepping
 def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
-                                     bname, force, energy, plot, method="RK4"):
-    ensure_dir(bname)
+                                     plot_name, energy_name, force, energy, plot, method="RK4"):
+    # Ensure the directories we wish to place the plots and results exist.
+    # We also want to overwrite the contents of the previous text file.
+    ensure_dir(plot_name)
+    ensure_dir(energy_name)
+    myfile = open('%s/energies.txt' % (energy_name), 'w')
+    myfile.close()
+
     energies = np.zeros((nt, 1))
     rms_v = np.zeros(nt)
     N = v.shape[0]
@@ -280,13 +292,12 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
     sinDtRootAlpha = np.sin(dt*rootAlpha)
 
     # Plot and calculate values for the initial conditions
+    # Write both to file, separated by a comma (for easy handling later if required)
     m, A, P, w = force(m)
     plot(b, m, 0)
-    energies[0, :] = energy(m, u, v, b, P, H)
-    print "initial energy =", energies[0, :]
+    energies[0, :] = energy(m, u, v, b, P)
     rms_v[0] = np.sqrt(np.sum(v**2)/N)
-
-    print "timestep =", dt
+    write_values(energies[0, :], rms_v[0], energy_name)
 
     # Timestepping
     for i in xrange(1, nt):
@@ -350,25 +361,28 @@ def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
         plot(b, m, i)
 
         # Calculate the energy, to track if it remains sensible
-        energies[i, :] = energy(m, u, v, b, P, H)
-        print "energy =", energies[i, :]
+        energies[i, :] = energy(m, u, v, b, P)
 
         # Calculate RMS of v
         rms_v[i] = np.sqrt(np.sum(v**2)/N)
+
+        # Write both to file
+        write_values(energies[i, :], rms_v[i], energy_name)
 
     return rms_v
 
 
 # Execute the simulation
 rms_v = perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt=t/nt,
-                        bname=bname, force=force, energy=energy, plot=plot_ts, method="RK4")
+                        plot_name=plot_name, energy_name=energy_name, force=force,
+                        energy=energy, plot=plot_ts, method="RK4")
 
 # Plot the rootmeansquare error of v
 time_array = np.linspace(0, t * L / u0, nt)
 rms_v = rms_v * u0
 plt.clf()
 plt.plot(time_array, rms_v)
-pylab.savefig('%s/v.png' % bname)
+pylab.savefig('%s/v.png' % plot_name)
 plt.clf()
 plt.plot(time_array, np.log(rms_v))
-pylab.savefig('%s/v_log.png' % bname)
+pylab.savefig('%s/v_log.png' % plot_name)
