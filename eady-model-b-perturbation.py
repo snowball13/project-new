@@ -1,4 +1,4 @@
-# Example
+
 import MongeAmpere as ma
 import numpy as np
 import scipy as sp
@@ -7,17 +7,18 @@ from EulerCommon import *
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
+
 # Constants and parameters
 N = 500 # number of particles
 nt = 2500 # timesteps
 endt = 60 * 60 * 24 # end time
 L = 2 * 1e6 # length of domain
 H = 1e4 # height of domain
-f = 1e-4 # coriolis
-s = -1e-7 # vertical gradient of buoyancy
 BVfreq2 = 2.5e-5 # Brunt-Vaisala frequency, squared.
 g = 10. # gravity
 rho0 = 1. # density
+f = 1e-4 # coriolis
+s = -1e-7 # vertical gradient of buoyancy
 
 # Dimension parameters and rescaling
 u0 = 0.1 * H * np.sqrt(BVfreq2)
@@ -31,7 +32,7 @@ Fr = u0 / (np.sqrt(BVfreq2) * H) # Froude number
 Bu = Ro/Fr # Burger's number
 
 # Epsilon parameter (dimensional units of s)
-eps = t/nt
+eps = 1e-5
 
 # Path to where to save results (plots saved as series of images, and energies/RMS of v)
 plot_name = "results/plots/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, endt, nt, eps)
@@ -218,7 +219,7 @@ def write_values(energy, rms_v, bname):
         myfile.write("%s\n" % rms_v)
 
 # Runge-Kutta 4 method
-def f(m, u, v, b, L, H, s, Ro, Fr, force):
+def h(m, u, v, b, L, H, s, Ro, Fr, force):
     m, A, P, w = force(m)
     alpha = L / (H * Fr**2)
     N = v.shape[0]
@@ -238,28 +239,28 @@ def RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force):
     b_interim = b.copy()
     N = v.shape[0]
 
-    k1 = f(m, u, v, b, L, H, s, Ro, Fr, force)
+    k1 = h(m, u, v, b, L, H, s, Ro, Fr, force)
     m_interim[:, 0] = m[:, 0] + k1[:N] * dt / 2
     m_interim[:, 1] = m[:, 1] + k1[N:2*N] * dt / 2
     u_interim[:, 0] = u[:, 0] + k1[2*N:3*N] * dt / 2
     u_interim[:, 1] = u[:, 1] + k1[3*N:4*N] * dt / 2
     v_interim[:] = v[:] + k1[4*N:5*N] * dt / 2
     b_interim[:] = b[:] + k1[5*N:] * dt / 2
-    k2 = f(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
+    k2 = h(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
     m_interim[:, 0] = m[:, 0] + k2[:N] * dt / 2
     m_interim[:, 1] = m[:, 1] + k2[N:2*N] * dt / 2
     u_interim[:, 0] = u[:, 0] + k2[2*N:3*N] * dt / 2
     u_interim[:, 1] = u[:, 1] + k2[3*N:4*N] * dt / 2
     v_interim[:] = v[:] + k2[4*N:5*N] * dt / 2
     b_interim[:] = b[:] + k2[5*N:] * dt / 2
-    k3 = f(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
+    k3 = h(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
     m_interim[:, 0] = m[:, 0] + k3[:N] * dt
     m_interim[:, 1] = m[:, 1] + k3[N:2*N] * dt
     u_interim[:, 0] = u[:, 0] + k3[2*N:3*N] * dt
     u_interim[:, 1] = u[:, 1] + k3[3*N:4*N] * dt
     v_interim[:] = v[:] + k3[4*N:5*N] * dt
     b_interim[:] = b[:] + k3[5*N:] * dt
-    k4 = f(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
+    k4 = h(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
 
     x = (k1 + 2*k2 + 2*k3 + k4) * dt / 6
     m[:, 0] += x[:N]
