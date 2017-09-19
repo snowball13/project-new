@@ -9,8 +9,8 @@ import matplotlib.tri as tri
 
 # Constants and parameters
 N = 500 # number of particles
-nt = 100 # timesteps
-t = 60 * 60 # end time
+nt = 2500 # timesteps
+endt = 60 * 60 * 24 # end time
 L = 2 * 1e6 # length of domain
 H = 1e4 # height of domain
 f = 1e-4 # coriolis
@@ -19,22 +19,23 @@ BVfreq2 = 2.5e-5 # Brunt-Vaisala frequency, squared.
 g = 10. # gravity
 rho0 = 1. # density
 
-# Epsilon parameter (dimensional units of s)
-eps = 0.01
-
-# Path to where to save results (plots saved as series of images)
-bname="results/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
-
 # Dimension parameters and rescaling
 u0 = 0.1 * H * np.sqrt(BVfreq2)
 b0 = H * BVfreq2
 s = s * L / b0 # Dimensionless vertical gradient of b
-t = t * u0 / L # Dimensionless time
+t = endt * u0 / L # Dimensionless time
 
 # Derived Constants
 Ro = u0 / (L * f) # Rosby number
 Fr = u0 / (np.sqrt(BVfreq2) * H) # Froude number
 Bu = Ro/Fr # Burger's number
+
+# Epsilon parameter (dimensional units of s)
+eps = t/nt
+print "eps =", eps
+
+# Path to where to save results (plots saved as series of images)
+bname="results/eady-model-b-perturbation/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, endt, nt, eps)
 
 # Array to set up the domian - [xmin, ymin, xmax, ymax]
 bbox = np.array([0., 0., 1., 1.])
@@ -261,6 +262,7 @@ def RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force):
     u[:, 1] += x[3*N:4*N]
     v[:] += x[4*N:5*N]
     b[:] += x[5*N:]
+    m = dens.to_fundamental_domain(m)
     return m, u, v, b
 
 # Simulation / timestepping
