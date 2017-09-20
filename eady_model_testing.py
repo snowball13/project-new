@@ -7,14 +7,14 @@ from argparse import ArgumentParser
 if __name__ == "__main__":
 
     parser = ArgumentParser(description="""Execute the eady model simulation""")
-    parser.add_argument("--nos", action="store_true",
+    parser.add_argument("--basic", action="store_true",
                         help="Ignore the vertical gradient of buoyancy (s) term.")
     parser.add_argument("run_number", type=int, nargs=1, choices=range(4),
                         help="The number corresponding the parameters to be chosen.")
 
     args = parser.parse_args()
     run_number = args.run_number[0]
-    no_s = args.nos
+    basic = args.basic
 
     if run_number == 0:
         N = 500
@@ -43,4 +43,4 @@ if __name__ == "__main__":
     else:
         print "Error - invalid number given"
 
-    eady_model(N, nt, endt, eps, no_s)
+    eady_model(N, nt, endt, eps, basic)

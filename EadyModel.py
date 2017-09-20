@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
 
-def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, no_s=False):
+def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
 
     # Constants and parameters
     # N = 500 # number of particles
@@ -21,7 +21,7 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, no_s=False):
     rho0 = 1. # density
     f = 1e-4 # coriolis
     s = -1e-7 # vertical gradient of buoyancy
-    if no_s:
+    if basic:
         s = 0.
 
     # Dimension parameters and rescaling
