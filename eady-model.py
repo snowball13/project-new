@@ -11,9 +11,9 @@ import matplotlib.tri as tri
 N = 500 # number of particles
 nt = 40 # timesteps
 t = 4. # end time
-eps = 1000.0
-L = 1. # length of domain
-H = 1. # height of domain
+eps = 0.1
+L = 1e6 # length of domain
+H = 1e4 # height of domain
 f = 1e-4 # coriolis
 s = -1e-7 # vertical gradient of buoyancy
 BVfreq = 2.5e-5 # Brunt-Vaisala frequency, squared.
@@ -21,7 +21,7 @@ g = 10. # gravity
 rho0 = 1. # density
 
 # Path to where to save results (plots saved as series of images)
-bname="results/eady-model/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
+bname="results/eady-model-basic/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N, t, nt, eps)
 
 # Array to set up the domian - [xmin, ymin, xmax, ymax]
 bbox = np.array([0., 0., 2*L, H])
@@ -133,11 +133,11 @@ def project_on_incompressible2(dens,Z,verbose=False):
     w = ma.optimal_transport_2(dens, Z, nu, verbose=verbose)
     return dens.lloyd(Z,w)[0],w
 
-m = ma.optimized_sampling_2(dens,N,niter=2)
+m = ma.optimized_sampling_2(dens,N,niter=2, verbose=True)
 
 def force(m):
     m = dens.to_fundamental_domain(m)
-    P, w = project_on_incompressible2(dens, m)
+    P, w = project_on_incompressible2(dens, m, verbose=True)
     return m, 1./(eps*eps)*(P-m), P, w
 
 def sqmom(V):
