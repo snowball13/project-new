@@ -1,3 +1,6 @@
+import matplotlib
+# Force matplotlib to not use any Xwindows backend.
+matplotlib.use('Agg')
 
 import MongeAmpere as ma
 import numpy as np
@@ -167,8 +170,8 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
 
     def energy(m, u, v, b, P):
         # Need density?
-        return (.5 * sqmom(u)/N
-                + .5 * np.sum(v[:] * v[:])/N
+        return (.5 * sqmom(u0 * u)/N
+                + .5 * np.sum((u0 * v)**2)/N
                 - np.sum((b[:] + m[:, 1] - 0.5) * (m[:, 1] - 0.5))/N
                 + .5/(eps*eps) * sqmom(m-P)/N)
 
@@ -273,8 +276,8 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
         u[:, 1] += x[3*N:4*N]
         v[:] += x[4*N:5*N]
         b[:] += x[5*N:]
-        m = dens.to_fundamental_domain(m)
-        return m, u, v, b
+        m, A, P, w = force(m)
+        return m, u, v, b, P
 
     # Simulation / timestepping
     def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
@@ -306,11 +309,6 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
 
         # Timestepping
         for i in xrange(1, nt):
-
-            if (i % 100 == 0):
-                print i
-                print "energy =", energies[i-1, :]
-            # print i
 
             # Execute the time step using a splitting method
             if method == "projection":
@@ -356,14 +354,15 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
                 print "min = ", b.min()
 
             elif method == "RK4":
-                m, u, v, b = RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force)
+                m, u, v, b, P = RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force)
 
             else:
                 print "Error - Invalid method selected"
                 break
 
             # Plot the results for this timestep
-            plot(b, m, i)
+            if (nt < 1000 or i % 100 == 0):
+                plot(b, m, i)
 
             # Calculate the energy, to track if it remains sensible
             energies[i, :] = energy(m, u, v, b, P)
