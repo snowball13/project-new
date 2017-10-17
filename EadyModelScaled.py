@@ -11,12 +11,13 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
 
-def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, beta=2e-2,
-                perturb=True, kick=False, basic=False, alwaysplot=False, verbose=False):
+def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, coriolis=True,
+                gravity=True, BVfreq2_term=True, s_term=True, perturb=True,
+                kick=False, alwaysplot=False, verbose=False):
 
     # Constants and parameters
-    nx = 20
-    nz = 20
+    nx = 50
+    nz = 50
     N = nx * nz
     L = 1e6 # length of domain
     H = 1e4 # height of domain
@@ -26,19 +27,27 @@ def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, beta=2e-2,
     rho0 = 1. # density
     f = 1e-4 # coriolis
     s = -1e-7 # vertical gradient of buoyancy
-    if basic:
-        s = 0.
     Bu = 0.5 # Burger's number
 
     # Rescaling
-    # beta = H / L
+    beta = H / (2*L)
     L = beta * L
     f = f / beta
     Bu = beta * Bu
 
     # Path to where to save results (plots saved as series of images, and energies/RMS of v)
-    plot_name = "results/eady-model-scaled/RT-N=%d-tmax=%g-nt=%g-eps=%g/plots" % (N, endt, nt, eps)
-    energy_name = "results/eady-model-scaled/RT-N=%d-tmax=%g-nt=%g-eps=%g/energies" % (N, endt, nt, eps)
+    switches = ""
+    if coriolis:
+        switches += "c"
+    if gravity:
+        switches += "g"
+    if BVfreq2_term:
+        switches += "N"
+    if s_term:
+        switches += "s"    
+    path_name = "results/eady-model-scaled/Run=%s-N=%d-tmax=%g-nt=%g-eps=%g/" % (switches, N, endt, nt, eps)
+    plot_name = path_name + "plots"
+    energy_name = path_name + "energies"
 
     # Array to set up the domian - [xmin, ymin, xmax, ymax]
     bbox = np.array([0., 0., 2*L, H])
@@ -296,50 +305,69 @@ def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, beta=2e-2,
             myfile.write("%s\n" % rms_v)
 
     # Runge-Kutta 4 method
-    def h(m, u, v, b, force, perturb=True):
+    def h(m, u, v, b, force, coriolis=True, gravity=True, BVfreq2_term=True,
+            s_term=True, perturb=True):
         m, A, P, w = force(m)
         N = v.shape[0]
         k = np.zeros(N*6)
+
+        # Basic equations
         k[:N] = u[:, 0]
         k[N:2*N] = u[:, 1]
-        k[2*N:3*N] = f * v + A[:, 0]
-        k[3*N:4*N] = b + A[:, 1]
-        k[4*N:5*N] = - f * u[:, 0] - s * (m[:, 1] - H/2)
-        if perturb:
-            k[5*N:] = - s * v - BVfreq2 * u[:, 1]
-        else:
-            k[5*N:] = - s * v
+        k[2*N:3*N] = A[:, 0]
+        k[3*N:4*N] = A[:, 1]
+
+        # Added terms, all True make up the full problem
+        if coriolis:
+            k[2*N:3*N] += f * v
+            k[4*N:5*N] -= f * u[:, 0]
+        if gravity:
+            k[3*N:4*N] += b
+        if BVfreq2_term and perturb:
+            k[5*N:] -= BVfreq2 * u[:, 1]
+        if s_term:
+            k[4*N:5*N] -= s * (m[:, 1] - H/2)
+            k[5*N:] -= s * v
+
         return k
 
-    def RK4(m, u, v, b, beta, dt, force, perturb=True):
+    def RK4(m, u, v, b, beta, dt, force, coriolis=True, gravity=True,
+            BVfreq2_term=True, s_term=True, perturb=True):
         m_interim = m.copy()
         u_interim = u.copy()
         v_interim = v.copy()
         b_interim = b.copy()
         N = v.shape[0]
 
-        k1 = h(m, u, v, b, force, perturb)
+        k1 = h(m, u, v, b, force, coriolis=coriolis, gravity=gravity,
+                BVfreq2_term=BVfreq2_term, s_term=s_term, perturb=perturb)
         m_interim[:, 0] = m[:, 0] + k1[:N] * dt / 2
         m_interim[:, 1] = m[:, 1] + k1[N:2*N] * dt / 2
         u_interim[:, 0] = u[:, 0] + k1[2*N:3*N] * dt / 2
         u_interim[:, 1] = u[:, 1] + k1[3*N:4*N] * dt / 2
         v_interim[:] = v[:] + k1[4*N:5*N] * dt / 2
         b_interim[:] = b[:] + k1[5*N:] * dt / 2
-        k2 = h(m_interim, u_interim, v_interim, b_interim, force, perturb)
+        k2 = h(m_interim, u_interim, v_interim, b_interim, force,
+                coriolis=coriolis, gravity=gravity, BVfreq2_term=BVfreq2_term,
+                s_term=s_term, perturb=perturb)
         m_interim[:, 0] = m[:, 0] + k2[:N] * dt / 2
         m_interim[:, 1] = m[:, 1] + k2[N:2*N] * dt / 2
         u_interim[:, 0] = u[:, 0] + k2[2*N:3*N] * dt / 2
         u_interim[:, 1] = u[:, 1] + k2[3*N:4*N] * dt / 2
         v_interim[:] = v[:] + k2[4*N:5*N] * dt / 2
         b_interim[:] = b[:] + k2[5*N:] * dt / 2
-        k3 = h(m_interim, u_interim, v_interim, b_interim, force, perturb)
+        k3 = h(m_interim, u_interim, v_interim, b_interim, force,
+                coriolis=coriolis, gravity=gravity, BVfreq2_term=BVfreq2_term,
+                s_term=s_term, perturb=perturb)
         m_interim[:, 0] = m[:, 0] + k3[:N] * dt
         m_interim[:, 1] = m[:, 1] + k3[N:2*N] * dt
         u_interim[:, 0] = u[:, 0] + k3[2*N:3*N] * dt
         u_interim[:, 1] = u[:, 1] + k3[3*N:4*N] * dt
         v_interim[:] = v[:] + k3[4*N:5*N] * dt
         b_interim[:] = b[:] + k3[5*N:] * dt
-        k4 = h(m_interim, u_interim, v_interim, b_interim, force, perturb)
+        k4 = h(m_interim, u_interim, v_interim, b_interim, force,
+                coriolis=coriolis, gravity=gravity, BVfreq2_term=BVfreq2_term,
+                s_term=s_term, perturb=perturb)
 
         x = (k1 + 2*k2 + 2*k3 + k4) * dt / 6
         m[:, 0] += x[:N]
@@ -354,7 +382,9 @@ def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, beta=2e-2,
     # Simulation / timestepping
     def perform_front_simulation_pert(m, u, v, b, L, H, s, f, beta, nt, dt,
                                         plot_name, energy_name, force, energy,
-                                        plot, perturb=True, alwaysplot=False,
+                                        plot, coriolis=True, gravity=True,
+                                        BVfreq2_term=True, s_term=True,
+                                        perturb=True, alwaysplot=False,
                                         method="RK4"):
         # Ensure the directories we wish to place the plots and results exist.
         # We also want to overwrite the contents of the previous text file.
@@ -380,7 +410,10 @@ def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, beta=2e-2,
 
             # Execute the time step using a splitting method
             if method == "RK4":
-                m, u, v, b, A, P, w = RK4(m, u, v, b, beta, dt, force, perturb=perturb)
+                m, u, v, b, A, P, w = RK4(m, u, v, b, beta, dt, force,
+                                            coriolis=coriolis, gravity=gravity,
+                                            BVfreq2_term=BVfreq2_term,
+                                            s_term=s_term, perturb=perturb)
             else:
                 print "Error - Invalid method selected"
                 break
@@ -402,10 +435,11 @@ def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, beta=2e-2,
 
 
     # Execute the simulation
-    rms_v = perform_front_simulation_pert(m, u, v, b, L, H, s, f, beta, nt, dt=dt,
-            plot_name=plot_name, energy_name=energy_name, force=force,
-            energy=energy, plot=plot_ts, perturb=perturb, alwaysplot=alwaysplot,
-            method="RK4")
+    rms_v = perform_front_simulation_pert(m, u, v, b, L, H, s, f, beta, nt,
+            dt=dt, plot_name=plot_name, energy_name=energy_name, force=force,
+            energy=energy, plot=plot_ts, coriolis=coriolis, gravity=gravity,
+            BVfreq2_term=BVfreq2_term, s_term=s_term, perturb=perturb,
+            alwaysplot=alwaysplot, method="RK4")
 
     # Plot the rootmeansquare error of v
     time_array = np.linspace(0, endt, nt)
