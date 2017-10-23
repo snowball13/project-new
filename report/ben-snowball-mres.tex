@@ -30,6 +30,8 @@
 \newcommand{\Ps}{\mathbb{P}_{\mathbb{S}}}
 \newcommand{\Pm}{\mathbb{P}_{\mathbb{M}_N}}
 \newcommand{\Leb}{\mathrm{Leb}}
+\newcommand{\DmDt}{\frac{\mathrm{D}m}{\mathrm{D}t}}
+\newcommand{\DuDt}{\frac{\mathrm{D}u}{\mathrm{D}t}}
 
 
 \title{MRes Report}
@@ -47,18 +49,29 @@
 The main goal of this paper is to investigate whether using an optimal transport method can be used to simulate our Eady model. We extend the method, introducing notation and our set of differential equations for our vertical slice Eady model, and detail how our program works. We finally present some results and conclusions.
 
 
+\section{The Eady Model}
+
+Here, we describe the process of obtaining our vertical slice Eady model. Let \(m\) be the 2-dimensional position vector in the \(x,z\text{-plane}\), and let \(u\) be the 2-dimensional velocity vector. The simple model describing the incompressible flow is:
+\begin{align}
+\DmDt &= u, \\
+\DuDt &= -\nabla p, 
+\end{align}
+where \(\frac{\mathrm{D}}{\mathrm{D}t}\) is the material derivative, and \(p\) is some pressure term. We add the constraint that we wish the distance from our point in space mapping \(m\) to the set of measure preserving maps \(\mathbb{S}\) to be zero. This means that in order to have a conserved Hamiltonian we need to incorporate this into it....
+
+
+
 \section{Extension of the Lagrangian Euler Scheme to the Eady Model}
 
 Our domain for our problem is \(\Omega = [-L, L] \times [-H, H] \subset \R^2\) with periodic boundary conditions in the \(x\)-direction. Let \(\M := L^2(\Omega, \R^2)\). We define \(\mathbb{S}\) as the set of volume preserving maps from \(\Omega \to \R^2\), that is:
 
 \begin{align}
-\mathbb{S} &= \{ s \in \M \quad | \quad s_{\#}Leb(A) := Leb(s^{-1}(A)) = Leb(A) \quad \forall A \subset \Omega \},
+\mathbb{S} &= \{ s \in \M \quad | \quad s_{\#}\Leb(A) := \Leb(s^{-1}(A)) = \Leb(A) \quad \forall A \subset \Omega \},
 \end{align}
 
 so \(\mathbb{S} \subset \M\). Now, for \(N \in \N\), we define a tessellation partition \(P_N\) of \(\Omega\) into \(N\) subsets \(\omega_i, i=1,\dots,N\) such that:
 
 \begin{align}
-1)& \quad Leb(\omega_i) = \frac{1}{N}Leb(\Omega) \quad \forall i = 1,\dots,N \\
+1)& \quad \Leb(\omega_i) = \frac{1}{N}\Leb(\Omega) \quad \forall i = 1,\dots,N \\
 2)& \quad \max_{i = 1,\dots,N} \mathrm{diam}(\omega_i) \le CN^{-\frac{1}{2}}, \quad C \text{ independent of } N.
 \end{align}
 
@@ -76,8 +89,10 @@ We note the meaning of the (squared) distance from a map in \(\MN\) to the set \
 
 Since \(\mathbb{S}\) is closed but not convex, the orthogonal projection of a map in \(\mathbb{S}\) exists, but is not uniquely defined, and so is simply given as any map that is a projection. In other words, a projection of \(m \in \mathbb{M}\), \(P_\mathbb{S}(m)\), is any point satisfying
 \begin{align}
-|| P_\mathbb{S}(m) - m || &= \dsmsq.
+|| P_\mathbb{S}(m) - m || &= \dsmsq,
 \end{align}
+
+and denote the orthogonal projection mapping on \(\MN\) by \(P_{\MN}\).
 
 We choose a set of variables \(z = (m, u, v, b) \in \MN \times \MN \times \LN \times \LN\), that satisfy the system of equations:
 \begin{align} 
