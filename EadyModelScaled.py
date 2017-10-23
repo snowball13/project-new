@@ -13,7 +13,7 @@ import matplotlib.tri as tri
 
 def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, coriolis=True,
                 gravity=True, BVfreq2_term=True, s_term=True, perturb=True,
-                kick=False, alwaysplot=False, verbose=False):
+                kick=False, alwaysplot=False, basic=False, verbose=False):
 
     # Constants and parameters
     nx = 50
@@ -35,8 +35,17 @@ def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, coriolis=True,
     f = f / beta
     Bu = beta * Bu
 
+    # Array to set up the domian - [xmin, ymin, xmax, ymax]
+    bbox = np.array([0., 0., 2*L, H])
+
+    if basic:
+        N = 500; nt = 40; eps = 0.1; endt = 4. #small testcase
+        bbox = np.array([0., -.5, 2., .5])
+
     # Path to where to save results (plots saved as series of images, and energies/RMS of v)
     switches = ""
+    if basic:
+        switches += "basic-"
     if coriolis:
         switches += "c"
     if gravity:
@@ -44,13 +53,11 @@ def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, coriolis=True,
     if BVfreq2_term:
         switches += "N"
     if s_term:
-        switches += "s"    
+        switches += "s"
     path_name = "results/eady-model-scaled/Run=%s-N=%d-tmax=%g-nt=%g-eps=%g/" % (switches, N, endt, nt, eps)
     plot_name = path_name + "plots"
     energy_name = path_name + "energies"
 
-    # Array to set up the domian - [xmin, ymin, xmax, ymax]
-    bbox = np.array([0., 0., 2*L, H])
 
     class Periodic_density_in_x (ma.ma.Density_2):
         def __init__(self, X, f, T, bbox):
@@ -228,42 +235,56 @@ def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, coriolis=True,
     # ***** simulation *****
 
     # Setup initial conditions.
-    if (not perturb):
-        # We use a fixed point iteration to calculate values for m[:, 1] to
-        # achieve hydrostatic balance
-        i = 1
-        imax = 10
-        alpha = 0.9
-        m_new = m.copy()
-        while (i < imax):
-            dm = H/2 - force(m)[1][:, 1] / BVfreq2
-            m_new[:, 1] = alpha * dm + (1 - alpha) * m[:, 1]
-            residual = np.sqrt(np.sum((m[:,1] - dm)**2))
-            print residual
-            if residual < 1e-2:
-                break
-            else:
-                m[:, 1] = m_new[:, 1]
-                i += 1
-        if (i == imax):
-            print "Note - hydrostatic balance may not be achieved for ICs"
-        m[:, 1] = m_new[:, 1] # hydrostatic balance
-    u = np.zeros((N, 2))
-    u[:, 0] = - s * (m[:, 1] - H/2) / f # geostrophic balance
-    v = np.zeros(N)
-    b = np.zeros(N)
-    if kick:
-        # We "kick" b with a small perturbation to induce the instability
-        pi = np.pi
-        def Z(z):
-            return Bu * (z/H - 0.5)
-        def coth(x):
-            return np.cosh(x) / np.sinh(x)
-        def n():
-            return Bu**(-1) * np.sqrt((Bu*0.5 - np.tanh(Bu*0.5)) * (coth(Bu*0.5)-Bu*0.5))
-        a = -7.5
-        b[:] = a * np.sqrt(BVfreq2) * (- (1.-Bu*0.5*coth(Bu*0.5)) * np.sinh(Z(m[:, 1])) * np.cos(pi*m[:, 0]/L)
-                                             - n() * Bu * np.cosh(Z(m[:, 1])) * np.sin(pi*m[:, 0]/L))
+    if basic:
+
+        ii = np.nonzero(m[:,1] <= 0)
+        jj = np.nonzero(m[:,1] > 0)
+        u = np.zeros((N,2))
+        u0 = 0.5
+        u[ii,0] = 1.
+        u[jj,0] = u0
+        v = np.zeros(N)
+        b = np.zeros(N)
+
+    else:
+
+        if (not perturb):
+            # We use a fixed point iteration to calculate values for m[:, 1] to
+            # achieve hydrostatic balance
+            i = 1
+            imax = 10
+            alpha = 0.9
+            m_new = m.copy()
+            while (i < imax):
+                dm = H/2 - force(m)[1][:, 1] / BVfreq2
+                m_new[:, 1] = alpha * dm + (1 - alpha) * m[:, 1]
+                residual = np.sqrt(np.sum((m[:,1] - dm)**2))
+                print residual
+                if residual < 1e-2:
+                    break
+                else:
+                    m[:, 1] = m_new[:, 1]
+                    i += 1
+            if (i == imax):
+                print "Note - hydrostatic balance may not be achieved for ICs"
+            m[:, 1] = m_new[:, 1] # hydrostatic balance
+        u = np.zeros((N, 2))
+        u[:, 0] = - s * (m[:, 1] - H/2) / f # geostrophic balance
+        v = np.zeros(N)
+        b = np.zeros(N)
+        if kick:
+            # We "kick" b with a small perturbation to induce the instability
+            pi = np.pi
+            def Z(z):
+                return Bu * (z/H - 0.5)
+            def coth(x):
+                return np.cosh(x) / np.sinh(x)
+            def n():
+                return Bu**(-1) * np.sqrt((Bu*0.5 - np.tanh(Bu*0.5)) * (coth(Bu*0.5)-Bu*0.5))
+            a = -7.5
+            b[:] = a * np.sqrt(BVfreq2) * (- (1.-Bu*0.5*coth(Bu*0.5)) * np.sinh(Z(m[:, 1])) * np.cos(pi*m[:, 0]/L)
+                                                 - n() * Bu * np.cosh(Z(m[:, 1])) * np.sin(pi*m[:, 0]/L))
+
 
     # Set up the plot function to give to the timestepping method
     def plot_timestep(i, b, u, v, m, A, P, w, bbox, fname, show=False):
