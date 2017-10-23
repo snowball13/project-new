@@ -11,48 +11,60 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
 
-def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
+def eady_model(N=2500, nt=2500, endt=86400, eps=1e-5, eta=0.1, coriolis=True,
+                gravity=True, BVfreq2_term=True, s_term=True, perturb=True,
+                kick=False, alwaysplot=False, basic=False, verbose=False):
 
     # Constants and parameters
-    # N = 500 # number of particles
-    # nt = 2500 # timesteps
-    # endt = 60 * 60 * 24 # end time
-    L = 2 * 1e6 # length of domain
+    nx = 50
+    nz = 50
+    N = nx * nz
+    L = 1e6 # length of domain
     H = 1e4 # height of domain
+    dt = 1.0 * endt / nt # timestep
     BVfreq2 = 2.5e-5 # Brunt-Vaisala frequency, squared.
     g = 10. # gravity
     rho0 = 1. # density
     f = 1e-4 # coriolis
     s = -1e-7 # vertical gradient of buoyancy
-    if basic:
-        s = 0.
+    Bu = 0.5 # Burger's number
 
-    # Dimension parameters and rescaling
-    u0 = 0.1 * H * np.sqrt(BVfreq2)
-    b0 = H * BVfreq2
-    s = s * L / b0 # Dimensionless vertical gradient of b
-    t = endt * u0 / L # Dimensionless time
-
-    # Derived Constants
-    Ro = u0 / (L * f) # Rosby number
-    Fr = u0 / (np.sqrt(BVfreq2) * H) # Froude number
-    Bu = Ro/Fr # Burger's number
-
-    # # Epsilon parameter (dimensional units of s)
-    # eps = t/nt
-
-    # Path to where to save results (plots saved as series of images, and energies/RMS of v)
-    plot_name = "results/eady-model/RT-N=%d-tmax=%g-nt=%g-eps=%g/plots" % (N, endt, nt, eps)
-    energy_name = "results/eady-model/RT-N=%d-tmax=%g-nt=%g-eps=%g/energies" % (N, endt, nt, eps)
+    # Rescaling
+    beta = H / (2*L)
+    L = beta * L
+    f = f / beta
+    Bu = beta * Bu
 
     # Array to set up the domian - [xmin, ymin, xmax, ymax]
-    bbox = np.array([0., 0., 1., 1.])
+    bbox = np.array([0., 0., 2*L, H])
+
+    if basic:
+        N = 500; nt = 40; eps = 0.1; endt = 4. #small testcase
+        bbox = np.array([0., -.5, 2., .5])
+
+    # Path to where to save results (plots saved as series of images, and energies/RMS of v)
+    switches = ""
+    if basic:
+        switches += "basic-"
+    if coriolis:
+        switches += "c"
+    if gravity:
+        switches += "g"
+    if BVfreq2_term:
+        switches += "N"
+    if s_term:
+        switches += "s"
+    path_name = "results/eady-model/Run=%s-N=%d-tmax=%g-nt=%g-eps=%g/" % (switches, N, endt, nt, eps)
+    plot_name = path_name + "plots"
+    energy_name = path_name + "energies"
+
 
     class Periodic_density_in_x (ma.ma.Density_2):
         def __init__(self, X, f, T, bbox):
             self.x0 = np.array([bbox[0],bbox[1]]);
             self.x1 = np.array([bbox[2],bbox[3]]);
             self.u = self.x1 - self.x0;
+            #self.vertices = X.copy()
             ma.ma.Density_2.__init__(self, X,f,T)
 
         def to_fundamental_domain(self,Y):
@@ -131,6 +143,11 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
             #Y = self.to_fundamental_domain(Y);
             return (Y,m)
 
+        def moments(self,X,w=None):
+            if w is None:
+                w = np.zeros(X.shape[0])
+            return ma.ma.moments_2(self,X,w)
+
 
     # generate density
     def sample_rectangle(bbox):
@@ -149,74 +166,168 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
     T = ma.delaunay_2(Xdens, w);
     dens = Periodic_density_in_x(Xdens, f1, T, bbox)
 
+    def weighted_lloyd(dens, m, w):
+        alpha = H/(2*L)
+        m = dens.lloyd(m, w)[0];
+        # m[:, 0] = mprime[:, 0]
+        # m[:, 1] = alpha * mprime[:, 1] + (1 - alpha) * m[:, 1]
+        return m
+
     def project_on_incompressible2(dens,Z,verbose=False):
         N = Z.shape[0]
         nu = np.ones(N) * dens.mass()/N
-        w = ma.optimal_transport_2(dens, Z, nu, verbose=verbose)
-        return dens.lloyd(Z,w)[0],w
+        w = ma.optimal_transport_2(dens, Z, nu, eps_g=eta, verbose=verbose)
+        Z = weighted_lloyd(dens, Z, w)
+        return Z, w
 
-    m = ma.optimized_sampling_2(dens,N,niter=2)
+    def initial_grid(dens, N, nx, nz, L, H, niter=2, eps_g=1e-7, verbose=False, rescale=True):
+        assert(N == nx*nz)
+
+        # Set up initial "guess" - a small perturbation from the midpoints of a
+        # uniform grid
+        var = 1e-1
+        xp = np.arange(L/nx, 2*L, 2*L/nx)
+        zp = np.arange(0.5*H/nz, H, H/nz)
+        x, z = np.meshgrid(xp, zp)
+        m = np.concatenate((x.reshape((1, np.size(x))), z.reshape((1, np.size(z))))).T
+        dx = np.random.randn(1, N)
+        dz = np.random.randn(1, N)
+        m += var * np.concatenate((dx*2*L/nx, dz*H/nz)).T
+        # plt.plot(m[:, 0], m[:, 1], ".")
+        # plt.show()
+
+        # Execute the optimised sampling algorithm so as to ensure ....
+        nu = np.ones(N)
+        nu = (dens.mass() / np.sum(nu)) * nu
+        w = np.zeros(N)
+        for i in xrange(1, 5):
+            m = dens.lloyd(m, w)[0]
+            # plt.plot(m[:, 0], m[:, 1], ".")
+            # plt.show()
+        for i in xrange(0, niter):
+            if verbose:
+                print "optimized_sampling, step %d" % (i+1)
+            w = ma.optimal_transport_2(dens, m, nu, eps_g=eps_g, verbose=verbose)
+            m = dens.lloyd(m, w)[0]
+            # plt.plot(m[:, 0], m[:, 1], ".")
+            # plt.show()
+
+        return m
+
+    # m = initial_grid(dens, N, nx, nz, L, H, niter=10, eps_g=eta, verbose=verbose)
+    # plt.plot(m[:, 0], m[:, 1], ".")
+    # plt.show()
+    m = ma.optimized_sampling_2(dens, N, niter=10, eps_g=eta, verbose=verbose)
+
+    def grad_squared_distance_to_incompressible(m):
+        m = dens.to_fundamental_domain(m)
+        P, w = project_on_incompressible2(dens, m, verbose=verbose)
+        return 2 * (m - P)
 
     def force(m):
         m = dens.to_fundamental_domain(m)
-        P, w = project_on_incompressible2(dens, m)
+        P, w = project_on_incompressible2(dens, m, verbose=verbose)
         pressureGradient = 1./(eps*eps)*(P-m)
-        pressureGradient[:, 0] = pressureGradient[:, 0] / L
-        pressureGradient[:, 1] = pressureGradient[:, 1] / H
         return m, pressureGradient, P, w
 
     def sqmom(V):
         return np.sum(V[:,0] * V[:,0] + V[:,1] * V[:,1])
 
-    def energy(m, u, v, b, P):
+    def energy(m, u, v, b, P, H, perturb=True):
         # Need density?
-        return (.5 * sqmom(u0 * u)/N
-                + .5 * np.sum((u0 * v)**2)/N
-                - np.sum((b[:] + m[:, 1] - 0.5) * (m[:, 1] - 0.5))/N
-                + .5/(eps*eps) * sqmom(m-P)/N)
+        if perturb:
+            b[:] = b[:] + (m[:, 1] - H/2) * BVfreq2
+        return (.5 * sqmom(u)/N
+                + .5 * np.sum(v**2)/N
+                - np.sum(b[:] * (m[:, 1] - H/2))/N
+                + .5/(eps*eps) * sqmom(m-P)/N) / (2*L*H)
 
 
     # ***** simulation *****
 
     # Setup initial conditions.
-    # We "kick" b with a small perturbation to induce the instability
-    u = np.zeros((N, 2))
-    v = np.zeros(N)
-    b = np.zeros(N)
-    pi = np.pi
-    def Z(z):
-        return Bu * (z - 0.5)
-    def coth(x):
-        return np.cosh(x) / np.sinh(x)
-    def n():
-        return Bu**(-1) * np.sqrt((Bu*0.5 - np.tanh(Bu*0.5)) * (coth(Bu*0.5)-Bu*0.5))
-    a = -7.5
-    b[:] = a / (np.sqrt(BVfreq2) * H) * (- (1.-Bu*0.5*coth(Bu*0.5)) * np.sinh(Z(m[:, 1])) * np.cos(pi*m[:, 0])
-                                         - n() * Bu * np.cosh(Z(m[:, 1])) * np.sin(pi*m[:, 0]))
-    u[:, 0] = - s * Ro * (m[:, 1] - 0.5) / Fr**2 # geostrophic balance
+    if basic:
+
+        ii = np.nonzero(m[:,1] <= 0)
+        jj = np.nonzero(m[:,1] > 0)
+        u = np.zeros((N,2))
+        u0 = 0.5
+        u[ii,0] = 1.
+        u[jj,0] = u0
+        v = np.zeros(N)
+        b = np.zeros(N)
+
+    else:
+
+        if (not perturb):
+            # We use a fixed point iteration to calculate values for m[:, 1] to
+            # achieve hydrostatic balance
+            i = 1
+            imax = 10
+            alpha = 0.9
+            m_new = m.copy()
+            while (i < imax):
+                dm = H/2 - force(m)[1][:, 1] / BVfreq2
+                m_new[:, 1] = alpha * dm + (1 - alpha) * m[:, 1]
+                residual = np.sqrt(np.sum((m[:,1] - dm)**2))
+                print residual
+                if residual < 1e-2:
+                    break
+                else:
+                    m[:, 1] = m_new[:, 1]
+                    i += 1
+            if (i == imax):
+                print "Note - hydrostatic balance may not be achieved for ICs"
+            m[:, 1] = m_new[:, 1] # hydrostatic balance
+        u = np.zeros((N, 2))
+        u[:, 0] = - s * (m[:, 1] - H/2) / f # geostrophic balance
+        v = np.zeros(N)
+        b = np.zeros(N)
+        if kick:
+            # We "kick" b with a small perturbation to induce the instability
+            pi = np.pi
+            def Z(z):
+                return Bu * (z/H - 0.5)
+            def coth(x):
+                return np.cosh(x) / np.sinh(x)
+            def n():
+                return Bu**(-1) * np.sqrt((Bu*0.5 - np.tanh(Bu*0.5)) * (coth(Bu*0.5)-Bu*0.5))
+            a = -7.5
+            b[:] = a * np.sqrt(BVfreq2) * (- (1.-Bu*0.5*coth(Bu*0.5)) * np.sinh(Z(m[:, 1])) * np.cos(pi*m[:, 0]/L)
+                                                 - n() * Bu * np.cosh(Z(m[:, 1])) * np.sin(pi*m[:, 0]/L))
+
 
     # Set up the plot function to give to the timestepping method
-    def plot_timestep(i, b, m, bbox, fname, show=False):
+    def plot_timestep(i, b, u, v, m, A, P, w, bbox, fname, show=False):
         plt.clf()
 
         x = m[:, 0]
         z = m[:, 1]
         triang = tri.Triangulation(x, z)
-        plt.tripcolor(triang, b, shading="flat")
-        plt.colorbar()
 
-        x, z = draw_bbox(bbox)
-        plt.plot(x, z, color=[0,0,0], linewidth=2, aa=True)
+        for ii, field in enumerate([A[:,0], A[:, 1], b, v, u[:,0], u[:,1]]):
+            plt.subplot(3,2,ii+1)
+            plt.tripcolor(triang, field, shading="flat")
+            plt.colorbar()
 
-        ee = 1e-2
-        plt.axis([bbox[0]-ee, bbox[2]+ee, bbox[1]-ee, bbox[3]+ee])
-        ax = pylab.gca()
-        ax.yaxis.set_visible(False)
-        ax.xaxis.set_visible(False)
+            # plt.plot(m[:, 0], m[:, 1], ".")
+            # E = dens.restricted_laguerre_edges(m, w)
+            # x,y = draw_voronoi_edges(E)
+            # plt.plot(x,y,color=[0.5,0.5,0.5],linewidth=0.5,aa=True)
+
+            x, z = draw_bbox(bbox)
+            plt.plot(x, z, color=[0,0,0], linewidth=2, aa=True)
+
+            ee = 1e-2
+            plt.axis([bbox[0]-ee, bbox[2]+ee, bbox[1]-ee, bbox[3]+ee])
+            ax = pylab.gca()
+            ax.yaxis.set_visible(False)
+            ax.xaxis.set_visible(False)
         if show:
-            plt.pause(.1)
+            #plt.pause(.1)
+            plt.show()
         pylab.savefig(fname) #, bbox_inches='tight', pad_inches = 0)
-    plot_ts = lambda b, m, i: plot_timestep(i, b, m, bbox, '%s/%03d.png' % (plot_name, i))
+    plot_ts = lambda b, u, v, m, A, P, w, i: plot_timestep(i, b, u, v, m, A, P, w, bbox, '%s/%03d.png' % (plot_name, i))
 
     # Set up the write to file function to give to the timestepping method
     def write_values(energy, rms_v, bname):
@@ -225,63 +336,49 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
             myfile.write("%s," % energy)
             myfile.write("%s\n" % rms_v)
 
-    # Runge-Kutta 4 method
-    def h(m, u, v, b, L, H, s, Ro, Fr, force):
+    # RATTLE method
+    def h(lam, m, u, gradd, dt, c):
+        arg = m + 0.5 * dt * u + 0.5 * dt * lam * gradd
+        dsq, _ = squared_distance_to_incompressible(dens, arg)
+        return dsq - c
+
+    def hprime(lam, m, u, gradd, dt):
+        arg = m + 0.5 * dt * u + 0.5 * dt * lam * gradd
+        return 0.5 * dt * np.inner(gradd, grad_squared_distance_to_incompressible(arg))
+
+    def rattle(m, u, gradd, dt, c):
+        # Calculate using Newton the Lagrange multiplier, then update half-step
+        # u values and full step m
+        lam = 0.
+        lam_next = 0.
+        res = 1.
+        i = 1
+        while (res > 1e-3 and i < 10):
+            lam_next = lam - h(lam, m, u, gradd, dt, c) / hprime(lam, m, u, gradd, dt)
+            res = np.abs((lam_next - lam)*(lam_next - lam))
+            lam = lam_next
+            i += 1
+        u[:] = u + 0.5 * dt * lam * gradd
+        m[:] = m + 0.5 * dt * u
+
+        # Store the gradient of the distance of m to the measure preserving
+        # maps space for this step
+        gradd[:] = grad_squared_distance_to_incompressible(m)
+
+        # Calculate the full step u values
+        lam = (2. / dt) * np.inner(gradd, u) / np.inner(gradd, gradd)
+        u[:] = u + 0.5 * dt * lam * gradd
+
         m, A, P, w = force(m)
-        alpha = L / (H * Fr**2)
-        N = v.shape[0]
-        k = np.zeros(N*6)
-        k[:N] = u[:, 0]
-        k[N:2*N] = u[:, 1] * L / H
-        k[2*N:3*N] = v / Ro + A[:, 0]
-        k[3*N:4*N] = alpha * b + A[:, 1]
-        k[4*N:5*N] = - u[:, 0] / Ro - (m[:, 1] - 0.5) * s / Fr**2
-        k[5*N:] = - s * v - u[:, 1]
-        return k
-
-    def RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force):
-        m_interim = m.copy()
-        u_interim = u.copy()
-        v_interim = v.copy()
-        b_interim = b.copy()
-        N = v.shape[0]
-
-        k1 = h(m, u, v, b, L, H, s, Ro, Fr, force)
-        m_interim[:, 0] = m[:, 0] + k1[:N] * dt / 2
-        m_interim[:, 1] = m[:, 1] + k1[N:2*N] * dt / 2
-        u_interim[:, 0] = u[:, 0] + k1[2*N:3*N] * dt / 2
-        u_interim[:, 1] = u[:, 1] + k1[3*N:4*N] * dt / 2
-        v_interim[:] = v[:] + k1[4*N:5*N] * dt / 2
-        b_interim[:] = b[:] + k1[5*N:] * dt / 2
-        k2 = h(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
-        m_interim[:, 0] = m[:, 0] + k2[:N] * dt / 2
-        m_interim[:, 1] = m[:, 1] + k2[N:2*N] * dt / 2
-        u_interim[:, 0] = u[:, 0] + k2[2*N:3*N] * dt / 2
-        u_interim[:, 1] = u[:, 1] + k2[3*N:4*N] * dt / 2
-        v_interim[:] = v[:] + k2[4*N:5*N] * dt / 2
-        b_interim[:] = b[:] + k2[5*N:] * dt / 2
-        k3 = h(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
-        m_interim[:, 0] = m[:, 0] + k3[:N] * dt
-        m_interim[:, 1] = m[:, 1] + k3[N:2*N] * dt
-        u_interim[:, 0] = u[:, 0] + k3[2*N:3*N] * dt
-        u_interim[:, 1] = u[:, 1] + k3[3*N:4*N] * dt
-        v_interim[:] = v[:] + k3[4*N:5*N] * dt
-        b_interim[:] = b[:] + k3[5*N:] * dt
-        k4 = h(m_interim, u_interim, v_interim, b_interim, L, H, s, Ro, Fr, force)
-
-        x = (k1 + 2*k2 + 2*k3 + k4) * dt / 6
-        m[:, 0] += x[:N]
-        m[:, 1] += x[N:2*N]
-        u[:, 0] += x[2*N:3*N]
-        u[:, 1] += x[3*N:4*N]
-        v[:] += x[4*N:5*N]
-        b[:] += x[5*N:]
-        m, A, P, w = force(m)
-        return m, u, v, b, P
+        return m, u, A, P, w, gradd
 
     # Simulation / timestepping
-    def perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt,
-                                         plot_name, energy_name, force, energy, plot, method="RK4"):
+    def perform_front_simulation_pert(m, u, v, b, L, H, s, f, beta, nt, dt,
+                                        plot_name, energy_name, force, energy,
+                                        plot, coriolis=True, gravity=True,
+                                        BVfreq2_term=True, s_term=True,
+                                        perturb=True, alwaysplot=False,
+                                        method="RATTLE"):
         # Ensure the directories we wish to place the plots and results exist.
         # We also want to overwrite the contents of the previous text file.
         ensure_dir(plot_name)
@@ -291,99 +388,59 @@ def eady_model(N=500, nt=2500, endt=86400, eps=1e-5, basic=False):
 
         energies = np.zeros((nt, 1))
         rms_v = np.zeros(nt)
-        N = v.shape[0]
-        cosDtOverRo = np.cos(dt/Ro)
-        sinDtOverRo = np.sin(dt/Ro)
-        alpha = L / (H * Fr**2)
-        rootAlpha = np.sqrt(alpha)
-        cosDtRootAlpha = np.cos(dt*rootAlpha)
-        sinDtRootAlpha = np.sin(dt*rootAlpha)
 
         # Plot and calculate values for the initial conditions
-        # Write both to file, separated by a comma (for easy handling later if required)
+        # Write both to file, separated by a comma (for easy handling later
+        # if required)
         m, A, P, w = force(m)
-        plot(b, m, 0)
-        energies[0, :] = energy(m, u, v, b, P)
+        plot(b, u, v, m, A, P, w, 0)
+        energies[0, :] = energy(m, u, v, b, P, H)
         rms_v[0] = np.sqrt(np.sum(v**2)/N)
         write_values(energies[0, :], rms_v[0], energy_name)
+
+        # Store the gradient of the distance of m to the measure preserving
+        # maps space for the first step
+        gradd = grad_squared_distance_to_incompressible(m)
+
+        # Store the intial sistance to incompressible. This acts as a baseline
+        # distance which we hope to stay close to (rather than fully incompressible)
+        c, _ = squared_distance_to_incompressible(dens, m)
 
         # Timestepping
         for i in xrange(1, nt):
 
             # Execute the time step using a splitting method
-            if method == "projection":
-                u_old = u.copy()
-                v_old = v.copy()
-                m[:, 0] += Ro * (sinDtOverRo * u_old[:, 0] - (cosDtOverRo - 1.) * v_old)
-                u[:, 0] = sinDtOverRo * v_old + cosDtOverRo * u_old[:, 0]
-                v[:] = cosDtOverRo * v_old - sinDtOverRo * u_old[:, 0]
-                b[:] -= (sinDtOverRo * v_old + (cosDtOverRo - 1) * u_old[:, 0]) * s * Ro
-
-                u_old = u.copy()
-                m_old = m.copy()
-                m[:, 1] += (sinDtRootAlpha * u_old[:, 1] / rootAlpha - (cosDtRootAlpha - 1.) * b)
-                u[:, 1] = sinDtRootAlpha * rootAlpha * b + cosDtRootAlpha * u_old[:, 1]
-                v[:] -= dt * (m_old[:, 1] - 0.5) * s / Fr**2
-                v[:] += ((sinDtRootAlpha * b / rootAlpha + dt * b - (cosDtRootAlpha - 1.) * u_old[:, 1] / alpha)
-                        * (s / Fr**2) * (L / H))
-                b[:] = cosDtRootAlpha * b - sinDtRootAlpha * u_old[:, 1] / rootAlpha
-
-                m, A, P, w = force(m)
-                du = (P - m) / dt
-                # m[:, :] = P
-                u[:, :] += A * dt
-
-            elif method == "incompressible":
-                u_old = u.copy()
-                m[:, 0] += Ro * (sinDtOverRo * u_old[:, 0] - (cosDtOverRo - 1) * v)
-                m[:, 1] += dt * u_old[:, 1] * L / H
-                u[:, 0] = cosDtOverRo * u_old[:, 0] + sinDtOverRo * v
-                b[:] -= (sinDtOverRo * v + (cosDtOverRo - 1) * u_old[:, 0]) * s * Ro
-                v[:] = cosDtOverRo * v - sinDtOverRo * u_old[:, 0]
-                print "max = ", b.max()
-                print "min = ", b.min()
-
-                m, A, P, w = force(m)
-                u_old = u.copy()
-                beta = 0.
-                u[:, 0] += beta * dt * A[:, 0]
-                u[:, 1] = beta * dt * A[:, 1] + rootAlpha * sinDtRootAlpha * b + cosDtRootAlpha * u_old[:, 1]
-                v[:] -= dt * (m[:, 1] - 0.5) * s / Fr**2
-                b[:] = cosDtRootAlpha * b - sinDtRootAlpha * u_old[:, 1] / rootAlpha
-                print "max = ", b.max()
-                print "min = ", b.min()
-
-            elif method == "RK4":
-                m, u, v, b, P = RK4(m, u, v, b, L, H, s, Ro, Fr, dt, force)
-
+            if method == "RATTLE":
+                m, u, A, P, w, gradd = rattle(m, u, gradd, dt, c)
             else:
                 print "Error - Invalid method selected"
                 break
 
             # Plot the results for this timestep
-            if (nt < 1000 or i % 100 == 0):
-                plot(b, m, i)
+            if (nt < 1000 or i % 100 == 0 or alwaysplot):
+                plot(b, u, v, m, A, P, w, i)
 
             # Calculate the energy, to track if it remains sensible
-            energies[i, :] = energy(m, u, v, b, P)
+            energies[i, :] = energy(m, u, v, b, P, H, perturb=perturb)
 
             # Calculate RMS of v
             rms_v[i] = np.sqrt(np.sum(v**2)/N)
 
-            # Write both to file
+            # Write to file
             write_values(energies[i, :], rms_v[i], energy_name)
 
         return rms_v
 
 
     # Execute the simulation
-    rms_v = perform_front_simulation_pert(m, u, v, b, L, H, s, Ro, Fr, nt, dt=t/nt,
-                            plot_name=plot_name, energy_name=energy_name, force=force,
-                            energy=energy, plot=plot_ts, method="RK4")
+    rms_v = perform_front_simulation_pert(m, u, v, b, L, H, s, f, beta, nt,
+            dt=dt, plot_name=plot_name, energy_name=energy_name, force=force,
+            energy=energy, plot=plot_ts, coriolis=coriolis, gravity=gravity,
+            BVfreq2_term=BVfreq2_term, s_term=s_term, perturb=perturb,
+            alwaysplot=alwaysplot, method="RATTLE")
 
     # Plot the rootmeansquare error of v
-    time_array = np.linspace(0, t * L / u0, nt)
-    rms_v = rms_v * u0
+    time_array = np.linspace(0, endt, nt)
     plt.clf()
     plt.plot(time_array, rms_v)
     pylab.savefig('%s/v.png' % plot_name)
