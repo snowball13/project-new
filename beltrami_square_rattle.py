@@ -1,4 +1,7 @@
 import matplotlib
+# Force matplotlib to not use any Xwindows backend.
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 from EulerCommon import *
 import pylab, os
@@ -28,6 +31,11 @@ def beltrami_rattle(n=50, eps=.1, t=1., nt=10, vistype='cells'):
     colors[kk,2] = 1.
 
     # RATTLE method
+
+    def grad_squared_distance_to_incompressible(X):
+        P, w = project_on_incompressible(dens, X)
+        return 2 * (X - P)
+
     def h(lam, m, u, gradd, dt, c):
         arg = m + 0.5 * dt * u + 0.5 * dt * lam * gradd
         dsq, _ = squared_distance_to_incompressible(dens, arg)
@@ -101,9 +109,6 @@ def beltrami_rattle(n=50, eps=.1, t=1., nt=10, vistype='cells'):
     def energy(X,P,V):
         return .5 * sqmom(V)/N + .5/(eps*eps) * sqmom(X-P)/N
 
-    def grad_squared_distance_to_incompressible(X):
-        P, w = project_on_incompressible(dens, X)
-        return 2 * (X - P)
 
     # ====================
     # Simulation
