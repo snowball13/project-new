@@ -57,15 +57,15 @@ def project_on_incompressible(dens,Z,verbose=False):
 
 # compute projection on incompressible
 # then compute the mass, centroids and second moment of Laguerre cells
-def projection_on_incompressible_moments(dens, Z):
+def projection_on_incompressible_moments(dens, Z, verbose=False):
     N = Z.shape[0]
     nu = np.ones(N) * dens.mass()/N
     w0= estimate_dual_variable(dens, Z)
-    w = ma.optimal_transport_2(dens, Z, nu, w0=w0, verbose=False)
+    w = ma.optimal_transport_2(dens, Z, nu, w0=w0, verbose=verbose)
     return dens.moments(Z,w)
 
-def squared_distance_to_incompressible(dens, s):
-    mass,cent,mom = projection_on_incompressible_moments(dens,s)
+def squared_distance_to_incompressible(dens, s, verbose=False):
+    mass,cent,mom = projection_on_incompressible_moments(dens, s, verbose=verbose)
     # energy = cxx + cyy + |s|^2 mass - 2 (cx sx + cy sy)
     E = sum(mass * (np.power(s[:,0],2) + np.power(s[:,1],2)) +
             mom[:,0] + mom[:,1] -
