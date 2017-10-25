@@ -54,18 +54,6 @@ def beltrami_rattle(n=50, eps=.1, t=1., nt=10, vistype='cells'):
         # Calculate using Newton the Lagrange multiplier, then update half-step
         # u values and full step m
         lam = optimize.fsolve(h, x0=[0], args=(m, u, gradd, dt, c), xtol=c*1e-3)
-
-        # lam = 0.
-        # lam_next = 0.
-        # res = 1.
-        # i = 1
-        # while (res > 1e-3 * c and i < 150):
-        #     h0 = h(lam, m, u, gradd, dt, c)
-        #     lam_next = lam - h0 / hprime(lam, m, u, gradd, dt)
-        #     res = np.abs(h0)
-        #     lam = lam_next
-        #     i += 1
-        #     print i-1, res, lam
         u[:] = u - 0.5 * dt * lam * gradd
         m[:] = m + dt * u
 
