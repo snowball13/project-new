@@ -126,20 +126,25 @@ def beltrami_rattle(n=50, eps=.1, t=1., nt=10, vistype='cells'):
     V = np.zeros((N,2))
     V[:,0] = -np.cos(pi*X[:,0]) * np.sin(pi*X[:,1])
     V[:,1] = np.sin(pi*X[:,0]) * np.cos(pi*X[:,1])
-    bname = "results/beltrami-square/RT-N=%d-tmax=%g-nt=%g-eps=%g" % (N,t,nt,eps)
+    P, w = project_on_incompressible(dens, X, verbose=verbose)
+
+    # Store the intial distance to incompressible. This acts as a baseline
+    # distance which we hope to stay close to (rather than fully incompressible)
+    c = squared_distance_to_incompressible(dens, X, verbose=verbose)[0]
+
+    # Set the output directory path
+    bname = "results/beltrami-square/RT-N=%d-tmax=%g-nt=%g-dt=%g-c=%g" % (N,t,nt,dt,c)
     ensure_dir(bname)
+
+    # Create or delete contents of the file that will contain energies and
+    # distance residuals
     myfile = open('%s/energies.txt' % (bname), 'w')
     myfile.close()
 
     verbose = False
 
     # Plot the ICs
-    P, w = project_on_incompressible(dens, X, verbose=verbose)
-    # plot(X, V, P, bname, 0)
-
-    # Store the intial distance to incompressible. This acts as a baseline
-    # distance which we hope to stay close to (rather than fully incompressible)
-    c = squared_distance_to_incompressible(dens, X, verbose=verbose)[0]
+    plot(X, V, P, bname, 0)
 
     # Calculate the intial energy
     energies = np.zeros((nt, 1))
