@@ -355,10 +355,15 @@ k_4 &= h(x^n + \dt k_3).
 We also provide a "kick" to the perturbation of the buoyancy on initialisation, to induce the instability.
 
 
-\section{Initialising the Grid}
+\section{RATTLE Algorithm}
 
-We begin by taking a set of uniformly spaced points, as an initial setup for our particles. We then perturb these slightly away from the uniformity, and execute a damped Newton algorithm to move our points into an equispaced setting (solve the optimal transport problem????).
+(Paper) describes the RATTLE algorithm that we use to solve the simple Beltrami flow problem, to get a feel for the scope of the algorithm in applying it to our Eady problem. Originally devised to be applied to molecular dynamics simulations, the RATTLE algorithm is used to solve constrained dynamical equations. We can formulate the simple flow problem as a constrained problem as follows:
 
+The RATTLE algorithm, applied to this problem, is then:
+
+which can be implemented computationally as follows:
+
+.
 
 
 
