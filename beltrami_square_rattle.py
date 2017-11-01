@@ -51,19 +51,27 @@ def beltrami_rattle(n=50, eps=.1, t=1., nt=10, vistype='cells'):
         # maps space for this step
         gradd = grad_squared_distance_to_incompressible(m)
 
-        # Calculate using Newton the Lagrange multiplier, then update half-step
-        # u values and full step m
-        lam = optimize.fsolve(h, x0=[0], args=(m, u, gradd, dt, c), xtol=c*1e-3)
-        u[:] = u - 0.5 * dt * lam * gradd
-        m[:] = m + dt * u
+        # If the new position update is already within our desired distance c,
+        # then move on
+        m_test = m + dt * u
+        if squared_distance_to_incompressible(dens, m_test)[0] < c:
+            m[:] = m_test
+        else:
+            # Calculate using Newton the Lagrange multiplier, then update half-step
+            # u values and full step m
+            lam = optimize.root(h, x0=[0.], args=(m, u, gradd, dt, c), tol=c*1e-3)['x']
+            print np.max(np.abs(u)), "vel size"
+            print np.max(np.abs(0.5 * dt * lam * gradd)), "correction size"
+            u[:] = u - 0.5 * dt * lam * gradd
+            m[:] = m + dt * u
 
-        # Store the gradient of the distance of m to the measure preserving
-        # maps space for the next step
-        gradd[:] = grad_squared_distance_to_incompressible(m)
+            # Store the gradient of the distance of m to the measure preserving
+            # maps space for the next step
+            gradd[:] = grad_squared_distance_to_incompressible(m)
 
-        # Calculate the full step u values
-        lam = (2. / dt) * np.einsum('ij,ij->', gradd, u) / np.einsum('ij,ij->', gradd, gradd)
-        u[:] = u - 0.5 * dt * lam * gradd
+            # Calculate the full step u values
+            lam = (2. / dt) * np.einsum('ij,ij->', gradd, u) / np.einsum('ij,ij->', gradd, gradd)
+            u[:] = u - 0.5 * dt * lam * gradd
 
         return m, u
 
@@ -127,11 +135,11 @@ def beltrami_rattle(n=50, eps=.1, t=1., nt=10, vistype='cells'):
 
     # Plot the ICs
     P, w = project_on_incompressible(dens, X, verbose=verbose)
-    plot(X, V, P, bname, 0)
+    # plot(X, V, P, bname, 0)
 
     # Store the intial distance to incompressible. This acts as a baseline
     # distance which we hope to stay close to (rather than fully incompressible)
-    c = 2*squared_distance_to_incompressible(dens, X, verbose=verbose)[0]
+    c = squared_distance_to_incompressible(dens, X, verbose=verbose)[0]
 
     # Calculate the intial energy
     energies = np.zeros((nt, 1))
@@ -145,10 +153,17 @@ def beltrami_rattle(n=50, eps=.1, t=1., nt=10, vistype='cells'):
 
         # Execute the RATTLE alg
         X, V = rattle(X, V, dt, c)
+        # A,P,w = force(X)
+        # V = V + dt*A
+        # X = X + dt*V
         P, w = project_on_incompressible(dens, X, verbose=verbose)
 
         # Plot this timestep
         plot(X, V, P, bname, i)
+        gradd = grad_squared_distance_to_incompressible(X)
+        plt.clf()
+        plt.quiver(X[:, 0], X[:, 1], gradd[:, 0], gradd[:, 1])
+        pylab.savefig('%s/gradd%03d.png' % (bname, i))
 
         # Check the distance to incompressible
         dist_res = abs(squared_distance_to_incompressible(dens, X, verbose=verbose)[0] - c)
@@ -160,4 +175,4 @@ def beltrami_rattle(n=50, eps=.1, t=1., nt=10, vistype='cells'):
         write_values(energies[i, :], dist_res, bname)
 
 
-beltrami_rattle(n=30, eps=.1, t=0.01, nt=50)
+beltrami_rattle(n=30, eps=.1, t=1., nt=500)
