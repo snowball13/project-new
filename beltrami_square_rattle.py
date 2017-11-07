@@ -146,7 +146,7 @@ def beltrami_rattle(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., bname="res
 
     # Execute timestepping
     for i in xrange(1, nt/2):
-
+        
         # Execute the RATTLE alg
         X, V = rattle(X, V, dt, c, i)
         P, w = project_on_incompressible(dens, X, verbose=verbose)
