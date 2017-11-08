@@ -77,10 +77,7 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
     # Set up the plot function to give to the timestepping method
     def plot_timestep(X, V, P, i, bbox, fname, show=False):
 
-        plt.cla()
         plt.clf()
-
-        plt.subplot(2, 2, 1)
 
         plt.scatter(P[ii,0], P[ii,1], s=50, color='red');
         plt.scatter(P[jj,0], P[jj,1], s=50, color='yellow');
@@ -99,10 +96,7 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
         ax.yaxis.set_visible(False)
         ax.xaxis.set_visible(False)
 
-        plt.subplot(2, 2, 2)
-        plt.quiver(X[:, 0], X[:, 1], V[:, 0], V[:, 1])
-
-        pylab.savefig(fname)
+        pylab.savefig(fname, bbox_inches='tight', pad_inches = 0)
 
     plot = lambda X, V, P, bname, i: plot_timestep(X, V, P, i, bbox, '%s/%03d.png' % (bname, i))
 
@@ -181,7 +175,11 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
     write_values(energies[0, :], c, bname)
 
     # Plot initial setup
+    print 0
     plot(X, V, P, bname, 0)
+    plt.clf()
+    plt.quiver(X[:, 0], X[:, 1], V[:, 0], V[:, 1])
+    pylab.savefig('%s/quiver0.png' % bname)
 
     # Execute timestepping
     for i in xrange(1, nt):
@@ -189,9 +187,12 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
         # Execute the RATTLE alg
         X, V = rattle(X, V, dt, c, i)
         P, w = project_on_incompressible(dens, X, verbose=verbose)
-        if (nt <= 1000 or i < 100 or i % 100 == 0):
+        if (nt <= 1000 or i % 100 == 0):
             print i
             plot(X, V, P, bname, i)
+            plt.clf()
+            plt.quiver(X[:, 0], X[:, 1], V[:, 0], V[:, 1])
+            pylab.savefig('%s/quiver%03d.png' % (bname, i))
 
         # Check the distance to incompressible
         dist_res = np.abs(squared_distance_to_incompressible(dens, X, verbose=verbose)[0] - c)
