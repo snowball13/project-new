@@ -46,24 +46,16 @@
 \maketitle
 \section{Introduction}
 
-The main goal of this paper is to investigate whether using an optimal transport method can be used to simulate our Eady model. We extend the method, introducing notation and our set of differential equations for our vertical slice Eady model, and detail how our program works. We finally present some results and conclusions.
+The main goal of this paper is to investigate whether using a new optimal transport timestepping method can be used to simulate an Eady model describing weather fronts. The ultimate aim is to apply the method to the model, and see how it compares to the Eulerian solution. The theory is that a Lagrangian framed approach might better resolve the frontal problem in weather forecasting.
+
+In Section 2 of this report, we provide some background on optimal transport approach and a simplectic timestepping method that will be part of our new method. In Section 3 we propose the method, and detail how our program works when applied to two examples: a simple Beltrami flow in a unit square, and a situation of a number of vortices placed in a unit square. We then in Section 4 present some results and finally give an outlook on where this work can head next in Section 5.
 
 
-\section{The Eady Model}
+\section{Background}
 
-Here, we describe the process of obtaining our vertical slice Eady model. Let \(m\) be the 2-dimensional position vector in the \(x,z\text{-plane}\), and let \(u\) be the 2-dimensional velocity vector. The simple model describing the incompressible flow is:
-\begin{align}
-\DmDt &= u, \\
-\DuDt &= -\nabla p, 
-\end{align}
-where \(\frac{\mathrm{D}}{\mathrm{D}t}\) is the material derivative, and \(p\) is some pressure term. We add the constraint that we wish the distance from our point in space mapping \(m\) to the set of measure preserving maps \(\mathbb{S}\) to be zero. This means that in order to have a conserved Hamiltonian we need to incorporate this into it....
+\subsection{Optimal Transport Approach}
 
-
-
-\section{Extension of the Lagrangian Euler Scheme to the Eady Model}
-
-Our domain for our problem is \(\Omega = [-L, L] \times [-H, H] \subset \R^2\) with periodic boundary conditions in the \(x\)-direction. Let \(\M := L^2(\Omega, \R^2)\). We define \(\mathbb{S}\) as the set of volume preserving maps from \(\Omega \to \R^2\), that is:
-
+We begin by outlining notation. Our domain for our problem is \(\Omega = [-L, L] \times [-H, H] \subset \R^2\) with periodic boundary conditions in the \(x\)-direction. Let \(\M := L^2(\Omega, \R^2)\). We define \(\mathbb{S}\) as the set of volume preserving maps from \(\Omega \to \R^2\), that is:
 \begin{align}
 \mathbb{S} &= \{ s \in \M \quad | \quad s_{\#}\Leb(A) := \Leb(s^{-1}(A)) = \Leb(A) \quad \forall A \subset \Omega \},
 \end{align}
@@ -75,11 +67,9 @@ so \(\mathbb{S} \subset \M\). Now, for \(N \in \N\), we define a tessellation pa
 2)& \quad \max_{i = 1,\dots,N} \mathrm{diam}(\omega_i) \le CN^{-\frac{1}{2}}, \quad C \text{ independent of } N.
 \end{align}
 
-Then we define \(\MN\) to be the space of functions from \(\Omega\) to \(\R^2\) which are constant on each of the subdomains \(\omega_i\) of \(P_N\), and \(\LN\) to be the space of functions from  \(\Omega\) to \(\R\) which are constant on each of the subdomains of \(P_N\) also. i.e.
-
+Then we define \(\MN\) to be the space of functions from \(\Omega\) to \(\R^2\) which are constant on each of the subdomains \(\omega_i\) of \(P_N\), i.e.
 \begin{align}
-\MN &= \{ \phi \: : \: \Omega \to \R^2 \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N\}, \\
-\LN &= \{ a \: : \: \Omega \to \R \quad | \quad a | _{\omega_i} \text{ is constant, } i = 1,\dots,N\}.
+\MN &= \{ \phi \: : \: \Omega \to \R^2 \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N\}.
 \end{align}
 
 We note the meaning of the (squared) distance from a map in \(\MN\) to the set \(\mathbb{S}\) is given by \(\dsmsq \: : \: \MN \to \R\) where
@@ -94,15 +84,13 @@ Since \(\mathbb{S}\) is closed but not convex, the orthogonal projection of a ma
 
 and denote the orthogonal projection mapping on \(\MN\) by \(P_{\MN}\).
 
-We choose a set of variables \(z = (m, u, v, b) \in \MN \times \MN \times \LN \times \LN\), that satisfy the system of equations:
+We choose a set of variables \(z = (m, u, v, b) \in \MN \times \MN \), that satisfy the system of equations:
 \begin{align} 
 \dot{m} &= u, \\
-\dot{u} &= f v \eone - \nabla p + b \etwo, \\
-\dot{v} &= - f u_1 - s(m_2 - H/2), \\
-\dot{b} &=  -vs,
+\dot{u} &= - \nabla p
 \end{align}
 
-where \(\nabla p = \frac{\graddsmsq}{\epsilon^2}\),  \(f\) is the coriolis force constant, \(s = \frac{\partial{b}}{\partial{y}}\) is the (constant) gradient of the bouyancy in the \(y\)-direction, and \(\epsilon\) is the spring parameter. Here, \(\eone\) and \(\etwo\) are the unit vectors in the \(x\) and \(z\) directions respectively.
+where \(\nabla p = \graddsmsq\).
 
 From (reference for Quentin 1), a calculatable formula for \(\graddsmsq\) exists. First, we introduce the definition of a Laguerre diagram. Let \(M = (M_1,\dots,M_N), \text{ where } M_i \in \R^2, \psi = (\psi_1,\dots,\psi_N), \text{ where } \psi_i \in \R\). The Laguerre diagram is a decomposition of \(\R^2\) into \(N\) convex polyhedra (Laguerre cells) defined by:
 \begin{align}
@@ -123,248 +111,86 @@ P_{\MN} \circ P_{\mathbb{S}}(m) &= \sum^N_{i=1} B_i \mathbbm{1}_{L_i}(m), \\
 B_i &:= \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N. 
 \end{align}
 
+Something about optimal transport in words....????
 
 
-\section{Nondimensionalistaion}
 
-We nondimensionalise the equations to help with the computational implementation. We first set:
-\begin{align} 
-m_1 &= X m_1', \\
-m_2 &= Z m_2', \\
-u &= u_0 u', \\
-v &=  u_0 v', \\
-b &= b_0 b', \\
-s &= \frac{b_0}{Y} s', \\
-f &= f_0 f' \\
-t &= \frac{L}{u_0} t',
-\end{align}
+\subsection{RATTLE Algorithm}
 
-where the primes denote nondimensional parameters. Note that we can simply set \(f' = 1\). We then have, 
+(Paper) describes the RATTLE algorithm that we modify to be part of our timestepping method. Originally devised to be applied to molecular dynamics simulations, the RATTLE algorithm is used to solve constrained dynamical equations. 
 
-\begin{equation}
-\frac{\mathrm d}{\mathrm d t} = \frac{\mathrm d t'}{\mathrm d t} \frac{\mathrm d}{\mathrm d t'} = \frac{u_0}{L} \frac{\mathrm d}{\mathrm d t'}.
-\end{equation}
+Hamiltonian systems of differential equations like (8-9) have a flow that demonstrates a symplectic geometry[, meaning that the sum of the areas of the projections of an orientated 2D surface in the phase space onto the \((m_i, u_i)\) coordinate planes are unchanged under the flow.] Importantly, it has been established that symplectic methods have better long-term stability properties than non-symplectic methods. [RATTLE ref, 20]. RATTLE is an example of a Verlet method for constrained problems, which is symplectic.
 
-Using these, we can then nondimensionalise our original equations (note that in the following, \(\dot{a} = \frac{\mathrm d a}{\mathrm d t'}\) where \(a\) is any of \(m', u', v', b'\)):
-\begin{align} 
-\dot{m'} &= \frac{L}{X} u_1' \eone +  \frac{L}{Z} u_2' \etwo, \\
-\dot{u'} &= \frac{L f}{u_0} v' \eone - \nabla \tilde{p} + \frac{L b_0}{u_0^2} b' \etwo, \\
-\dot{v'} &= -\frac{L f}{u_0} u_1' - (\frac{Z}{Y} m_2' - \frac{H}{2L}) \frac{L b_0}{u_0^2} s', \\
-\dot{b'} &= -\frac{L}{Y} v' s'.
-\end{align}
 
-We can then choose appropriate values for the dimensional constants as follows:
-\begin{align} 
-X &= Y = L, \\
-Z &= H, \\
-b_0 &= N^2 H, \\
-u_0 &= \frac{N H}{10},
-\end{align}
+\section{Method}
 
-where \(N\) is the B-V frequency. We can then define the Rossby and Froude numbers as
-\begin{align} 
-Ro &= \frac{u_0}{L f}, \\
-Fr &= \frac{u_0}{N H}.
-\end{align}
-
-This gives the nondimensional equations (note for convenience we now drop the primes and the tilde):
-\begin{align} 
-\dot{m} &= u_1 \eone +  \frac{L}{H} u_2 \etwo, \\
-\dot{u} &= \frac{1}{Ro} v \eone - \nabla p + \alpha b \etwo, \\
-\dot{v} &= -\frac{1}{Ro} u_1 - (m_2 - \frac{1}{2}) \frac{1}{Fr^2} s, \\
-\dot{b} &= -v s,
-\end{align}
-where we define
+Here, we describe the process of obtaining our model. Let \(m\) be the 2-dimensional position vector in the \(x,z\text{-plane}\), and let \(u\) be the 2-dimensional velocity vector. The simple model describing the incompressible flow is:
 \begin{align}
-\alpha := \frac{L}{H Fr^2}.
+\DmDt &= u, \\
+\DuDt &= -\nabla p, 
+\end{align}
+where \(\frac{\mathrm{D}}{\mathrm{D}t}\) is the material derivative, and \(p\) is some pressure term. We add the constraint that we wish the distance from our point in space mapping \(m\) to the set of measure preserving maps \(\mathbb{S}\) to be zero. This means that in order to have a conserved Hamiltonian we need to incorporate this into it....
+
+....
+
+We can formulate the simple flow problem as a constrained problem as follows. The undiscretised incompressible Euler equations can be written in Lagrangian form as:
+\begin{align}
+& \dot{m}(a, t) = u(a,t), \quad \text{contraint}: \: \dsmsq = 0 \\
+\iff
+ &\begin{cases}
+  \dot{m} = u \\
+  \dot{u} = \lambda \graddsmsq, \quad \lambda = \lambda(t) \text{ a Lagrange multiplier enforcing } \dsmsq = 0.
+ \end{cases} 
 \end{align}
 
-To avoid the process of ensuring hydrostatic balance on initilisation, we actually only need to look at the perturbation of the buoyancy \(b\), which we denote \(\bt\), and similarly the perturbation of the pressure term \(p\), which we denote \(\pt\), i.e.
-\begin{align} 
-b(x, t) &= b(x, 0) + \bt(x, t),
-\end{align}
-where
-\begin{align} 
-b(x, 0) &=: b^{(0)} = m_2 - \frac{1}{2}.
+Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. To address this, we choose an initial condition \(m(0) =: m^{(0)}\) and set
+\begin{align}
+c &:= d^{2}_{\mathbb{S}}(m^{(0)})
 \end{align}
 
-Thus,
-\begin{align} 
-\dot{b} &= u.\nabla b^{(0)} + \dot{\bt} \\
-\implies \dot{\bt} &= \dot{b} - u.\nabla b^{(0)} \\
-\implies \dot{\bt} &= -vs - u_2.
+so \(c\) is independent of \(t\) and gives the "distance" from an incompressible state that the particles initially lie. We then solve
+\begin{align}
+ &\begin{cases}
+  \dot{m} = u \\
+  \dot{u} = \lambda \graddsmsq, \quad \lambda = \lambda(t) \text{ a Lagrange multiplier enforcing } \dsmsq \le c.
+ \end{cases} 
 \end{align}
 
-Further, for the pressure term, we set
-\begin{align} 
-p =  p_h + \pt,
-\end{align}
-and thus
-\begin{align} 
-\dot{u} &= \frac{1}{Ro} v \eone - \nabla p_h - \nabla \pt + \alpha b^{(0)} \etwo + \alpha \bt \etwo.
-\end{align}
+Define, for each timestep \(n\), \(b^n := \nabla{d^{2}_{\mathbb{S}}(m^n)}\). Our modified RATTLE algorithm, applied to this problem, is then:
 
-Upon setting
-\begin{align} 
-p_h = p^{(0)} + \int_{z_0}^z \alpha b^{(0)}\,\mathrm{d}\xi
-\end{align}
-we have, as \(b^{(0)}\) is independent of \(x\), that \(\nabla p_h . \eone = 0\) and so
-\begin{align} 
-\nabla p_h = \alpha b^{(0)} \etwo.
-\end{align}
+Algorithm 1:
+\begin{align*}
+ &\text{IF } (m^n + \dt \; u^n < c) \\
+ &\quad \text{set } m^{n+1} = m^n + \dt \; u^n, \: \: u^{n+1} = u^n \\
+ &\text{ELSE } \\
+ &\quad 
+ \begin{cases}
+  m^{n+1} = m^{n} + \dt \; u^{n+1/2}  \\
+  u^{n+1/2} = u^n - \frac{\dt}{2} \lambda^n b^n \\
+  b^{n+1} - c = 0
+ \end{cases} \\
+ &\quad 
+ \text{and, } \nonumber \\
+ &\quad 
+ \begin{cases}
+  u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1} \\
+  u^{n+1} \cdot b^{n+1} = 0.
+ \end{cases} 
+\end{align*}
 
-Thus, our nondimensional equations become
-\begin{align} 
-\dot{m} &= u_1 \eone +  \frac{L}{H} u_2 \etwo, \\
-\dot{u} &= \frac{1}{Ro} v \eone - \nabla \pt + \alpha \bt \etwo, \\
-\dot{v} &= -\frac{1}{Ro} u_1 - (m_2 - \frac{1}{2}) \frac{1}{Fr^2} s, \\
-\dot{\bt} &= -v s - u_2,
-\end{align}
+For clarity, we note that the constraint in the first bracketed section of the algorithm is used to find the Lagrange multiplier \(\lambda^n\) such that the constraint is satisfied, which is then used to calculate \(u^{n+1/2}\) and hence \(m^{n+1}\). We do this using an iterative method, such as Newton. For the seconded bracketed section, the Lagrange multiplier \(\hat{\lambda}^{n+1}\) can be calculated directly from the constraint with no need for an iterative method.
 
-with the initial conditions
-\begin{align} 
-\bt |_{t=0} &= 0, v |_{t=0} = 0, u_2 |_{t=0} = 0, \\
-u_1 |_{t=0} &= -s (m_2 - \frac{1}{2}) \frac{Ro}{Fr^2} \quad \text{(geostrophic balance)}.
-\end{align}
+
+\section{Results}
 
 
 
-\section{Timestepping}
 
-We use a splitting method to execute a timestepping procedure to solve equations (38-41). The equations corresponding to the kinetic energy are:
-\begin{align} 
-\dot{m} &= u_1 \eone +  \frac{L}{H} u_2 \etwo, \\
-\dot{u} &= \frac{1}{Ro} v \eone, \\
-\dot{v} &= -\frac{1}{Ro} u_1, \\
-\dot{\bt} &= -v s.
-\end{align}
+\section{Summary and Outlook}
 
-which has the exact solution of:
-\begin{align} 
-m^{n+1} &= m^n + \dt \frac{L}{H} u_2 \etwo + Ro [\sin(\frac{\dt}{Ro}) u_1^n - (\cos(\frac{\dt}{Ro}) - 1) v^n] \eone, \\
-u^{n+1} &= u_2^n \etwo + [\cos(\frac{\dt}{Ro}) u_1^n - \sin(\frac{\dt}{Ro}) v^n] \eone, \\
-v^{n+1} &= \sin(\frac{\dt}{Ro}) u_1^n - \cos(\frac{\dt}{Ro}) v^n, \\
-\bt^{n+1} &= \bt^n - sRo[\sin(\frac{\dt}{Ro}) v^n - (\cos(\frac{\dt}{Ro}) - 1) u_1^n].
-\end{align}
+In this report we have looked at setting out a potential new timestepping method that involves optimal transport and a constrained symplectic algorithm. We have given some background to the method, as well as establishing its convergence numerically suing a couple of examples. 
 
-Further, the equations corresponding to the potential energy are:
-\begin{align} 
-\dot{m} &= 0, \\
-\dot{u} &= - \nabla \pt + \alpha \bt \etwo, \\
-\dot{v} &= - (m_2 - \frac{1}{2}) \frac{s}{Fr^2}, \\
-\dot{\bt} &= -u_2,
-\end{align}
-
-which has the exact solution of:
-\begin{align} 
-m^{n+1} &= m^n, \\
-u^{n+1} &=  u_1^n \eone - \dt \nabla \pt(m^n) + [\sqrt{\alpha} \sin(\sqrt{\alpha} \dt)  \bt^n + \cos(\sqrt{\alpha} \dt) u_2^n] \etwo, \\
-v^{n+1} &= v^n - \dt (m_2^n - \frac{1}{2})\frac{s}{Fr^2}, \\
-\bt^{n+1} &= \cos(\sqrt{\alpha} \dt)  \bt^n + \frac{1}{\sqrt{\alpha}} \sin(\sqrt{\alpha} \dt) u_2^n.
-\end{align}
-
-The two exact solutions can be combined to make a Hamiltonian splitting method, of which the lowest order scheme is the non-canonical symplectic Euler method:
-\begin{align} 
-m^{*} &= m^n + \dt \frac{L}{H} u_2 \etwo + Ro [\sin(\frac{\dt}{Ro}) u_1^n - (\cos(\frac{\dt}{Ro}) - 1) v^n] \eone, \\
-u^{*} &= u_2^n \etwo + [\cos(\frac{\dt}{Ro}) u_1^n - \sin(\frac{\dt}{Ro}) v^n] \eone, \\
-v^{*} &= \sin(\frac{\dt}{Ro}) u_1^n - \cos(\frac{\dt}{Ro}) v^n, \\
-\bt^{*} &= \bt^n - sRo[\sin(\frac{\dt}{Ro}) v^n - (\cos(\frac{\dt}{Ro}) - 1) u_1^n], \\
-m^{n+1} &= m^{*}, \\
-u^{n+1} &=  u_1^{*} \eone - \dt \nabla \pt(m^{*}) + [\sqrt{\alpha} \sin(\sqrt{\alpha} \dt)  \bt^{*} + \cos(\sqrt{\alpha} \dt) u_2^{*}] \etwo, \\
-v^{n+1} &= v^{*} - \dt (m_2^{*} - \frac{1}{2})\frac{s}{Fr^2}, \\
-\bt^{n+1} &= \cos(\sqrt{\alpha} \dt)  \bt^{*} + \frac{1}{\sqrt{\alpha}} \sin(\sqrt{\alpha} \dt) u_2^{*},
-\end{align}
-
-where \(\alpha = \frac{L}{H Fr^2}\).
-
-
-
-\section{Timestepping for Full Scheme}
-
-After more careful thought, we discovered that nondimensionalising the equations meant we lost the measure preserving properties of the projections in the optimal transport method. Thus, we instead return to our original equations, while still looking at the perturbation of the buoyancy \(b\) from some background state.
-
-To avoid the process of ensuring hydrostatic balance on initilisation, we actually only need to look at the perturbation of the buoyancy \(b\), which we denote \(\bt\), and similarly the perturbation of the pressure term \(p\), which we denote \(\pt\), i.e.
-\begin{align} 
-b(x, t) &= b(x, 0) + \bt(x, t),
-\end{align}
-where
-\begin{align} 
-b(x, 0) &=: b^{(0)} = N^2 (m_2 - \frac{H}{2}).
-\end{align}
-
-Thus,
-\begin{align} 
-\dot{b} &= u.\nabla b^{(0)} + \dot{\bt} \\
-\implies \dot{\bt} &= \dot{b} - u.\nabla b^{(0)} \\
-\implies \dot{\bt} &= -vs - N^2 u_2.
-\end{align}
-
-Further, for the pressure term, we set
-\begin{align} 
-p =  p_h + \pt,
-\end{align}
-and thus
-\begin{align} 
-\dot{u} &= f v \eone - \nabla p_h - \nabla \pt + b^{(0)} \etwo + \bt \etwo.
-\end{align}
-
-Upon setting
-\begin{align} 
-p_h = p^{(0)} + \int_{z_0}^z b^{(0)}\,\mathrm{d}\xi
-\end{align}
-we have, as \(b^{(0)}\) is independent of \(x\), that \(\nabla p_h . \eone = 0\) and so
-\begin{align} 
-\nabla p_h = b^{(0)} \etwo.
-\end{align}
-
-Thus, our full set of differential equations to solve are:
-
-\begin{align} 
-\dot{m} &= u, \\
-\dot{u} &= f v \eone - \nabla \pt + \bt \etwo, \\
-\dot{v} &= -f u_1 - (m_2 - \frac{H}{2}) s, \\
-\dot{\bt} &= -v s - N^2 u_2.
-\end{align}
-
-To solve, we use a Runge-Kutta method of order 4 (RK4), implemented as follows. We wish to solve:
-
-\begin{align} 
-\dot{x} &= h(x)
-\end{align}
-
-where we set
-\begin{align} 
-x &= (m_1, m_2, u_1, u_2, v, \bt), \\
-h(x) :&= (u_1, u_2, fv + (\nabla \pt)_1, \bt + (\nabla \pt)_2, -fu_1 -s(m_2 - \frac{H}{2}), -sv -N^2u_2).
-\end{align}
-
-Then at each timestep, we calculate:
-\begin{align} 
-x^{n+1} &= \frac{\dt}{6}(k_1 + 2k_2 + 2k_3 + k_4),
-\end{align}
-
-using
-
-\begin{align} 
-k_1 &= h(x^n), \\
-k_2 &= h(x^n + \frac{\dt}{2}k_1), \\
-k_3 &= h(x^n + \frac{\dt}{2}k_2), \\
-k_4 &= h(x^n + \dt k_3).
-\end{align}
-
-We also provide a "kick" to the perturbation of the buoyancy on initialisation, to induce the instability.
-
-
-\section{RATTLE Algorithm}
-
-(Paper) describes the RATTLE algorithm that we use to solve the simple Beltrami flow problem, to get a feel for the scope of the algorithm in applying it to our Eady problem. Originally devised to be applied to molecular dynamics simulations, the RATTLE algorithm is used to solve constrained dynamical equations. We can formulate the simple flow problem as a constrained problem as follows:
-
-The RATTLE algorithm, applied to this problem, is then:
-
-which can be implemented computationally as follows:
-
-.
-
+When looking at implementing on the Eady model problem itself, we encountered issues relating to the implementation of the periodic boundary conditions, as well as the aspect ratio of the large domain (about 100x larger in the horizontal than the vertical. One solution to this latter problem could be to redefine the distance metric used in the Laguerre cells definition given, to "penalise" distance moved in the vertical direction by the appropriate amount (the ratio). Ultimately, we would look to gain a mathematical proof for convergence and stability of the method, and look to implement it for the full Eady model problem and see how it compares to the Eulerian solution.
 
 
 \end{document}
