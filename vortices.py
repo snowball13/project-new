@@ -25,7 +25,6 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
     # Setup the vortices
     no_of_vortices = 3
     weights = np.ones(no_of_vortices) * 0.1
-    weights[2] *= 2
     centres = np.zeros((no_of_vortices, 2))
     centres[0, :] = np.array([0.25, 0.25])
     centres[1, :] = np.array([0.75, 0.25])
@@ -138,10 +137,12 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
 
     def V0(X, N, sigma, gamma, weights, centres):
         # The exact (steady state) solution to the problem
-        outx = - np.power(xi(X), 1./gamma) * dphi(X, N, sigma, weights, centres, wrt=1)
-        outx += - (np.power(xi(X), (1.-gamma)/gamma) / gamma) * dxi(X, wrt=1) * phi(X, N, sigma, weights, centres)
-        outz = np.power(xi(X), 1./gamma) * dphi(X, N, sigma, weights, centres, wrt=0)
-        outz += (np.power(xi(X), (1.-gamma)/gamma) / gamma) * dxi(X, wrt=0) * phi(X, N, sigma, weights, centres)
+        # outx = - np.power(xi(X), 1./gamma) * dphi(X, N, sigma, weights, centres, wrt=1)
+        outx = - dphi(X, N, sigma, weights, centres, wrt=1)
+        # outx += - (np.power(xi(X), (1.-gamma)/gamma) / gamma) * dxi(X, wrt=1) * phi(X, N, sigma, weights, centres)
+        # outz = np.power(xi(X), 1./gamma) * dphi(X, N, sigma, weights, centres, wrt=0)
+        outz = dphi(X, N, sigma, weights, centres, wrt=0)
+        # outz += (np.power(xi(X), (1.-gamma)/gamma) / gamma) * dxi(X, wrt=0) * phi(X, N, sigma, weights, centres)
         return np.array([outx, outz]).T
 
 
