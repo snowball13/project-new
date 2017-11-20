@@ -266,20 +266,31 @@ Pseudo-Code for Algorithm 2:
 
 \section{Results}
 
-To test our method, we use two examples. First, we have a simple Beltrami flow in a unit square, where
-\begin{align}
-u = (-\cos(m_0 \pi) \sin(m_1 \pi), \: \sin(m_0 \pi) \cos(m_1 \pi))
-\end{align}
-where \(m_0, \: m_1\) are the horizontal and vertical components of the position \(m\) respectively. The Eulerian solution is that the velocity remains as this function.
+We first look at the relationship between the initial distance from incompressible (c value) and the number of particles used for the initialisation of the model (N value). Figure \ref{fig:c-N} shows that \(c \propto 1/N\) i.e. an inversely proportional relationship. This indicates that as we increase the number of particles used for our run, the error from being incompressible upon setup decreases linearly.
 
-Our second example, still in the unit square, has \(n_v\) vortices placed in the domain with centres at positions \(C_i\) and weights \(w_i, \: i = 1,\dots,n_v\). We design our velocity for our flow as 
+To test our method further, we use two examples. First, we have a simple Beltrami flow in a unit square, initialised with velocity \(u^0 = U(m^0)\) where
 \begin{align}
-u &= \nabla^\perp \phi, \\
-\phi &= \sum_{i=1}^{n_v} w_i \: \exp(\frac{|| m - C_i ||^2}{2 \sigma^2})
+U(m) = (-\cos(m_0 \pi) \sin(m_1 \pi), \: \sin(m_0 \pi) \cos(m_1 \pi))
+\end{align}
+where \(m_0, \: m_1\) are the horizontal and vertical components of the position \(m\) respectively. The Eulerian solution is that the velocity remains as this function. In figure \ref{fig:error-N} we see that the \(E \propto 1/N^2\), where \(E\) is the \(L^2\mathrm{-error}\),
+\begin{align}
+E = (\frac{u^{n_t} - U(m^{n_t})}{N})^\frac{1}{2}
+\end{align}
+where \(m^{n_t}, u^{n_t}\) are the positions and corresponding velocities of the particles after \(n_t\) timesteps. For figure \ref{fig:error-N}, we used 120 timesteps and an end time of 0.5s (and so a step size of \(\dt = 0.004167\)) for each run. The relationship indicates that the error decreases as we increase the number of particles used in the run. 
+
+We also look at comparing the results of our model with that of \cite{gallouet2016lagrangian} when running the Beltrami flow over a time period of 1s, using \(N = 1000\) particles and a step size of \(\dt = 0.004s\). Figure \ref{fig:beltrami-flow} shows a visualisation of the flow using three snapshots of the simulation when using each algorithm. We can see that the results compare well. Further, we also see that the [energy].
+ 
+Our second example, still in the unit square, has \(n_v\) vortices placed in the domain with centres at positions \(C_i\) and weights \(w_i, \: i = 1,\dots,n_v\). We design our flow to be initialised with velocity \(u^0 = U(m^0)\) where
+\begin{align}
+U(m) &= \nabla^\perp \phi(m), \\
+\phi(m) &= \sum_{i=1}^{n_v} w_i \: \exp(\frac{|| m - C_i ||^2}{2 \sigma^2})
 \end{align}
 where \(\sigma\) is the standard deviation of the vortex strength from the centre.
 
+Figure \ref{fig:vortices} shows a visualisation of the flow, over a time period of 1s. The number of particles used is \(N = 2000\), with a step size of \(\dt = 0.0005s\). We used \(n_v = 3\) vortices with centres \(C_1 = [0.25, 0.25], C_2 = [0.75, 0.25] \) and \(C_3 = [0.5, 0.75]\) with weights \(w_1 = w_2 = w_3 = 0.1\), and a standard deviation \(\sigma = 0.1\). We also note the [energy].
+
 [
+0) plots of h(lambda)
 1) N-c plot
 2) N-error plot
 3) Some Laguerre plots for Beltrami, for both Q and ours
@@ -293,6 +304,7 @@ where \(\sigma\) is the standard deviation of the vortex strength from the centr
 \centering
 \caption{A plot of initial distances from incompressible (c values) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 50 N values from 500 to 25000 in intervals of 500. Also plotted is a line of slope -1 on the log-log scale [blue line].}
 \centering
+\label{fig:c-N}
 \end{figure}
 
 \begin{figure}[h]
@@ -300,63 +312,66 @@ where \(\sigma\) is the standard deviation of the vortex strength from the centr
 \centering
 \caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 10 N values from 5000 to 50000 in intervals of 5000. Also plotted is a line of slope \(\frac{1}{2}\) on the log-log scale [blue line].}
 \centering
+\label{fig:error-N}
 \end{figure}
 
 \begin{figure}[h]
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
         \includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:beltrami-flow-000}
     \end{subfigure}
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
         \includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/125}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:beltrami-flow-125}
     \end{subfigure}
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
 	\includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/249}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:beltrami-flow-249}
     \end{subfigure}
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
 	\includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/energies}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:beltrami-flow-energies}
     \end{subfigure}
 \centering
 \caption{Our new method running the Beltrami flow example over a time period of 1s. The number of particles used is \(N = 1000\), with a step size of \(\dt = 0.004s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. The colours used are only to help distinguish the particles as they travel. ((a) Initial positions, (b) after 125 timesteps, (c) after 249 timesteps). (d) A plot of the energy of the system against time. }
 \centering
+\label{fig:beltrami-flow}
 \end{figure}
 
 \begin{figure}[h]
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
         \includegraphics[scale=0.3]{vortices/quiver0}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:vortices-quiver0}
     \end{subfigure}
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
         \includegraphics[scale=0.3]{vortices/000}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:vortices-000}
     \end{subfigure}
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
 	\includegraphics[scale=0.3]{vortices/1000}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:vortices-1000}
     \end{subfigure}
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
 	\includegraphics[scale=0.3]{vortices/1900}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:vortices-1900}
     \end{subfigure}
    \begin{subfigure}[t]{0.45\textwidth}
         \centering
 	\includegraphics[scale=0.3]{vortices/energies}
-        \caption{} \label{fig:timing2}
+        \caption{} \label{fig:vortices-energies}
     \end{subfigure}
 \centering
 \caption{Our new method running the Vortices example over a time period of 1s. The number of particles used is \(N = 2000\), with a step size of \(\dt = 0.0005s\). We used \(n_v = 3\) vortices with centres \(C_1 = [0.25, 0.25], C_2 = [0.75, 0.25] \) and \(C_3 = [0.5, 0.75]\) with weights \(w_1 = w_2 = w_3 = 0.1\), and a standard deviation \(\sigma = 0.1\). (a) A quiver plot of the initial velocity. For each particle, the arrow direction indicates the direction of the velocity at that position, while the thickness indicates the magnitude of the velocity. (b), (c), (d) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. The colours used are only to help distinguish the particles as they travel. ((b) Initial positions, (c) after 1000 timesteps, (d) after 1900 timesteps). (e) A plot of the energy of the system against time. }
 \centering
+\label{fig:vortices}
 \end{figure}
 
 
