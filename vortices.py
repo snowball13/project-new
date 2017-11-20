@@ -208,4 +208,8 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
         # Write to file
         write_values(energies[i, :], dist_res, bname)
 
+    plt.clf()
+    plt.plot(dt*np.array(range(nt)), energies[:, 0])
+    pylab.savefig('%s/energies.png' % bname)
+
     return errorL2

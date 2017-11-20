@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     if run_number == 0:
         nruns = 50
-        bname = "results/rattle-test"
+        bname = "results/beltrami-square-rattle"
         ensure_dir(bname)
         square = np.array([[-0.5,-0.5],[-0.5,0.5],[0.5,0.5],[0.5,-0.5]])
         bbox = [-0.5, -0.5, 0.5, 0.5]
@@ -49,30 +49,34 @@ if __name__ == "__main__":
 
     elif run_number == 1:
         nruns = 10
-        t = 1.
+        t = 0.5
         c_scaling = 1.
-        nt = 250
-        bname = "results/rattle-test"
+        nt = 120
+        bname = "results/beltrami-square-rattle"
         ensure_dir(bname)
         square = np.array([[-0.5,-0.5],[-0.5,0.5],[0.5,0.5],[0.5,-0.5]])
         bbox = [-0.5, -0.5, 0.5, 0.5]
         dens = ma.Density_2(square)
 
         errorL2 = np.zeros(nruns)
-        N = np.array([1000 * i for i in range(1, nruns+1)])
+        N = np.array([5000 * i for i in range(1, nruns+1)])
 
         myfile = open('%s/N-errorL2-values.txt' % (bname), 'w')
         myfile.close()
 
         for i in xrange(nruns):
+
             X = ma.optimized_sampling_2(dens, N[i], niter=1)
-            errorL2[i] = beltrami_rattle(X, dens, bbox, N=N[i], t=t, nt=nt, c_scaling=c_scaling, bname=bname)[-1]
+            errorL2[i] = beltrami_rattle(X, dens, bbox, N=N[i], t=t, nt=nt, c_scaling=c_scaling, bname=bname, plot=False)[-1]
 
             # Write to file
             with open('%s/N-errorL2-values.txt' % (bname), "a") as myfile:
                 # separated by a comma (for easy handling later if required)
                 myfile.write("%s," % N[i])
-                myfile.write("%s\n" % errorL2[i])
+                myfile.write("%s," % errorL2[i])
+                myfile.write("%s," % np.log(1./N[i]))
+                myfile.write("%s\n" % np.log(errorL2[i]))
+
             # Plot as we go
             plt.cla()
             plt.loglog(1./N[:i+1], errorL2[:i+1], 'kx')
@@ -81,6 +85,6 @@ if __name__ == "__main__":
             print i
 
         plt.loglog(1./N, errorL2, 'kx')
-        plt.loglog(1./N, N, 'b')
+        plt.loglog(1./N, np.sqrt(1./N), 'b')
         plt.loglog(1./N, 1./N, 'r')
         pylab.savefig('%s/error-N.png' % bname)

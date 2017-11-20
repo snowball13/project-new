@@ -9,7 +9,8 @@ import matplotlib.tri as tri
 from scipy import optimize
 
 
-def beltrami_rattle(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., bname="results/rattle-test/", verbose=False):
+def beltrami_rattle(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1.,
+                    bname="results/rattle-test/", verbose=False, plot=True):
 
     a = -.5+.33
     b = -.5+.66
@@ -87,18 +88,14 @@ def beltrami_rattle(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., bname="res
         #plt.pause(.1)
         pylab.savefig(fname, bbox_inches='tight', pad_inches = 0)
 
-    plot = lambda X, V, P, bname, i: plot_timestep(X, V, P, i, bbox, '%s/%03d.png' % (bname, i))
-
-
-    def force(X):
-        P,w = project_on_incompressible(dens,X)
-        return 1./(eps*eps)*(P-X), P, w
+    plot_ts = lambda X, V, P, bname, i: plot_timestep(X, V, P, i, bbox, '%s/%03d.png' % (bname, i))
 
     def sqmom(V):
         return np.sum(V[:,0] * V[:,0] + V[:,1] * V[:,1])
 
     def energy(X,P,V):
-        return .5 * sqmom(V)/N + .5/(eps*eps) * sqmom(X-P)/N
+        # return .5 * sqmom(V)/N + .5/(eps*eps) * sqmom(X-P)/N
+        return 0.5 * sqmom(V) / N
 
     # Write to file function for the timestepping method
     def write_values(energy, distance_residual, bname):
@@ -137,16 +134,19 @@ def beltrami_rattle(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., bname="res
     myfile.close()
 
     # Setup storing arrays
-    energies = np.zeros((nt/2, 1))
-    errorL2 = np.zeros(nt/2)
+    energies = np.zeros((nt, 1))
+    errorL2 = np.zeros(nt)
     energies[0, :] = energy(X, P, V)
 
     # Write to file
     write_values(energies[0, :], c, bname)
 
+    if plot:
+        plot_ts(X, V, P, bname, 0)
+
     # Execute timestepping
-    for i in xrange(1, nt/2):
-        
+    for i in xrange(1, nt):
+
         # Execute the RATTLE alg
         X, V = rattle(X, V, dt, c, i)
         P, w = project_on_incompressible(dens, X, verbose=verbose)
@@ -163,5 +163,14 @@ def beltrami_rattle(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., bname="res
 
         # Write to file
         write_values(energies[i, :], dist_res, bname)
+
+        if plot:
+            plot_ts(X, V, P, bname, i)
+
+
+    if plot:
+        plt.clf()
+        plt.plot(dt*np.array(range(nt)), energies[:, 0])
+        pylab.savefig('%s/energies.png' % bname)
 
     return errorL2
