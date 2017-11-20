@@ -5,14 +5,20 @@
 \usepackage[parfill]{parskip}    		% Activate to begin paragraphs with an empty line rather than an indent
 \usepackage{graphicx}				% Use pdf, png, jpg, or eps§ with pdflatex; use eps in DVI mode
 								% TeX will automatically convert eps --> pdf in pdflatex		
+\usepackage{caption}
+\usepackage{subcaption}
+\graphicspath{ {../results/} }
+
 \usepackage{amssymb}
 \usepackage{amsmath}
-\usepackage{graphicx}
 \usepackage{bbm}
 
 %SetFonts
 
 %SetFonts
+
+\usepackage{url}
+\bibliographystyle{plain}
 
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\MN}{\mathbb{M}_N}
@@ -35,6 +41,7 @@
 \newcommand{\DuDt}{\frac{\mathrm{D}u}{\mathrm{D}t}}
 
 
+
 \title{MRes Report}
 \author{Ben Snowball}
 %\date{}							% Activate to display a given date or no date
@@ -47,9 +54,13 @@
 \maketitle
 \section{Introduction}
 
-The main goal of this paper is to investigate whether using a new optimal transport timestepping method can be used to simulate an Eady model describing weather fronts. The ultimate aim is to apply the method to the model, and see how it compares to the Eulerian solution. The theory is that a Lagrangian framed approach might better resolve the frontal problem in weather forecasting.
+\cite{hoskins1971atmospheric} introduced the the semi-geostrophic (SG) equations, an asymptotic limit as the Rossby number heads to \(0\) and the Froude number to \(\O(1)\) of the incompressible Euler-Boussinesq equations. \cite{cullen2006mathematical} considered looking at a vertical slice model of these equations (the Eady model) that is used to look at the formation and evolution of weather fronts, by using a coordinate transformation to give an optimal transport interpretation of the SG equations.
 
-In Section 2 of this report, we provide some background on optimal transport approach and a symplectic timestepping method that will be part of our new method. In Section 3 we propose the method, and detail how our program works when applied to two examples: a simple Beltrami flow in a unit square, and a situation of a number of vortices placed in a unit square. We then in Section 4 present some results and finally give an outlook on where this work can head next in Section 5.
+\cite{visram2014framework} then compared the SG numerics with the standard Eady-Boussinesq numerics, and found that the standard Boussinesq solution does not go to the SG solution as the Rossby number tends to \(0\). They hypothesised that the standard numerics are going to the wrong solution due to numerical dissipation. This was the motivation to then look at a new Lagrangian method for this frontal problem in weather forecasting, to see if that will lead to a solution that will tend to the SG solution. 
+
+This report is a first step in this direction. The main contribution is the construction of a version of an algorithm using the work of \cite{gallouet2016lagrangian} that avoids issues with artificial compressibility. The ultimate aim is to apply the method to the model, and see how it compares to the Eulerian solution.
+
+In Section 2 of this report, we provide some background on the optimal transport approach and a symplectic timestepping method that will be part of our new method. In Section 3 we propose the method, and detail how our program works when applied to two examples: a simple Beltrami flow in a unit square, and a situation of a number of vortices placed in a unit square. We then in Section 4 present some results and finally give an outlook on where this work can head next in Section 5.
 
 
 \section{Background}
@@ -67,19 +78,20 @@ We can extend this to define a notion of distance for any map in \(\M\) to the s
 \begin{align}
 \Sb &= \{ \: s \in \M \quad | \quad s_{\#}\Leb(A) := \Leb(s^{-1}(A)) = \Leb(A) \quad \forall A \subset \Omega \},
 \end{align}
-(so \(\Sb \subset \M\)) we can define the (squared) distance from a map in \(\M\) to the set \(\Sb\) by \(d^2_\Sb \: : \: \M \to \R\) where
+(so \(\Sb \subset \M\)) where \(\Leb\) is the Lebesque measure on \(\Omega\), we can define the (squared) distance from a map in \(\M\) to the set \(\Sb\) by \(d^2_\Sb \: : \: \M \to \R\) where
 \begin{align}
 \dsmsq := \min_{s \in \mathbb{S}} d^2(m, s), \quad m \in \M.
 \end{align}
+It follows then then that for a configuration \(m\), \(\dsmsq = 0\) is equivalent to the configuration being incompressible.
 
-Now, for \(N \in \N\), we define a tessellation partition \(P_N\) of \(\Omega\) into \(N\) subsets \(\omega_i, i=1,\dots,N\) such that:
+\cite{gallouet2016lagrangian} introduced the idea of discretising our function space. For \(N \in \N\), we define a tessellation partition \(P_N\) of \(\Omega\) into \(N\) subsets \(\omega_i, i=1,\dots,N\) such that:
 \begin{align}
 1)& \quad \Leb(\omega_i) = \frac{1}{N}\Leb(\Omega) \quad \forall i = 1,\dots,N \\
 2)& \quad \max_{i = 1,\dots,N} \mathrm{diam}(\omega_i) \le CN^{-\frac{1}{2}}, \quad C \text{ independent of } N.
 \end{align}
 Then we define \(\MN\) to be the space of functions from \(\Omega\) to \(\R^n\) which are constant on each of the subdomains \(\omega_i\) of \(P_N\), i.e.
 \begin{align}
-\MN &= \{ \phi \: : \: \Omega \to \R^2 \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N\}.
+\MN &= \{ \phi \: : \: \Omega \to \R^n \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N\}.
 \end{align}
 Note that of course our notion of distance for any map in \(\MN\) to \(\Sb\) still holds. Discretising in this way, i.e. representing functions as piecewise constant maps, allows us to store computationally a map as merely as set of points (the value of the map on each subdomain \(\omega_i\)).
 
@@ -92,21 +104,20 @@ where \(\nabla p = \frac{\graddsmsq}{2\epsilon^2}\). Here, \(\epsilon\) is the s
 \begin{align} 
 H(m, u) &= \frac{1}{2} ||u||^2_{L^2} + \frac{\dsmsq}{2\epsilon^2}.
 \end{align}
-Conserving the Hamiltonian keeps the system close to incompressible. 
+Conserving the Hamiltonian keeps the system close to incompressible when \(\epsilon\) is small,  stiff spring. 
 
-
-From (reference for Quentin 1), a calculatable formula for \(\graddsmsq\) exists. First, we introduce the definition of a Laguerre diagram and briefly explain the projections used as part the formula. Let \(M = (M_1,\dots,M_N), \text{ where } M_i \in \R^2, \psi = (\psi_1,\dots,\psi_N), \text{ where } \psi_i \in \R\). The Laguerre diagram is a decomposition of \(\R^2\) into \(N\) convex polyhedra (Laguerre cells) defined by:
+From \cite{gallouet2016lagrangian}, a calculatable formula for \(\graddsmsq\) exists. First, we introduce the definition of a Laguerre diagram and briefly explain the projections used as part the formula. Let \(M = (M_1,\dots,M_N), \text{ where } M_i \in \R^n, \psi = (\psi_1,\dots,\psi_N), \text{ where } \psi_i \in \R\). The Laguerre diagram is a decomposition of \(\R^2\) into \(N\) convex polyhedra (Laguerre cells) defined by
 \begin{align}
-\mathrm{Lag}_i(M, \psi) &= \{x \in \R^2 \quad | \quad || x - M_i ||^2 + \psi_i \le || x - M_j ||^2 + \psi_j, \quad \forall j = 1,\dots,N\}
+\mathrm{Lag}_i(M, \psi) &:= \{x \in \R^n \quad | \quad || x - M_i ||^2 + \psi_i \le || x - M_j ||^2 + \psi_j, \quad \forall j = 1,\dots,N\}
 \end{align}
 
 Since \(\Sb\) is closed but not convex, the orthogonal projection of a map in \(\Sb\) exists, but is not uniquely defined. Thus it is simply given as any map that is a projection. In other words, a projection of \(m \in \M\), \(P_\Sb(m)\), is any point satisfying
 \begin{align}
 || P_\Sb(m) - m || &= \dsmsq.
 \end{align}
-We also denote the orthogonal projection mapping on \(\MN\) by \(P_{\MN}\).
+We also denote the orthogonal projection mapping on \(\MN\) by \(P_{\MN}\). The following proposition was proved by \cite{gallouet2016lagrangian}.
 
-Proposition 1: Let \(m \in \MN\) and define \(M_i := m(\omega_i) \in \R^2 \text{ for } i = 1,\dots,N\) with \(M = (M_1,\dots,M_N)\). Then there exists \(\psi = (\psi_1,\dots,\psi_N), \psi \in \R\), unique up to additive constant such that, with \(L_i := \mathrm{Lag}_i(M, \psi)\), 
+Proposition 1: Let \(m \in \MN\) and define \(M_i := m(\omega_i) \in \R^n \text{ for } i = 1,\dots,N\) with \(M = (M_1,\dots,M_N)\). Then there exists \(\psi = (\psi_1,\dots,\psi_N), \psi \in \R\), unique up to additive constant such that, with \(L_i := \mathrm{Lag}_i(M, \psi)\), 
 \begin{align}
 \Leb(L_i) &= \frac{1}{N}\Leb(\Omega),
 \end{align}
@@ -121,22 +132,34 @@ P_{\MN} \circ P_{\mathbb{S}}(m) &= \sum^N_{i=1} B_i \mathbbm{1}_{L_i}(m), \\
 B_i &:= \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N. 
 \end{align}
 
-Equations (13, 14) above are implemented in a code Library [Q github link], which is used in [Quentin ref]. [Quentin ref] used a symplectic method (symplectic Euler) to discretise in time. A symplectic Hamiltonian is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
+Equations (13, 14) above are implemented in a code Library \cite{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. \cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise in time. A symplectic Hamiltonian is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
 
 Computationally, problems arose with extending this method to geophysical fluids problems due to the difficulty in tuning the \(\epsilon\) parameter. [More required]. The subsequent idea was to answer the question "how do we remove the need for \(\epsilon\) and get rid of compressibility?".
 
-\subsection{RATTLE Algorithm}
+\subsection{RATTLE Algorithm and Symplecticity}
 
-[History]
+\cite{leimkuhler1994symplectic} describes the RATTLE algorithm that we modify to be part of our timestepping method. Verlet \cite{verlet1967computer} used a two-step discretisation for unconstrained problems like (7, 8), originally devised to be applied to molecular dynamics simulations. \cite{ryckaert1977numerical} introduced a direct numerical integration scheme called SHAKE based on the Verlet method that incorporates a holonomic constraint on the system (a constraint on one of the variables). \cite{andersen1983rattle} adapted this into the basis for an algorithm known as RATTLE, that preserves other invariants.
 
-[Paper] describes the RATTLE algorithm that we modify to be part of our timestepping method. Originally devised to be applied to molecular dynamics simulations, the RATTLE algorithm is used to solve constrained Hamiltonian equations. 
+Hamiltonian systems of differential equations like (7, 8) have a flow that preserves a symplectic structure. Importantly, it has been established that symplectic methods have better long-term stability properties than non-symplectic methods \cite{okunbor1992explicit}. In \cite{ruth1983canonical} it was noted that the Verlet method is symplectic, and \cite{leimkuhler1994symplectic} confirms that RATTLE is also symplectic. 
 
-Hamiltonian systems of differential equations like (7, 8) have a flow that preserves a symplectic structure. Importantly, it has been established that symplectic methods have better long-term stability properties than non-symplectic methods. [RATTLE ref, 20]. RATTLE is an example of a Verlet method for constrained problems, which is symplectic.
+For a symplectic timestepping method, there exists a modified Hamiltonian \(H'(p, q) = H(p, q) + \dt^k \Delta H(p, q, \dt)\) if \(H\) is infinitely differentiable, such that solutions of the modified Hamiltonian system corresponding to \(H'\) pass exactly through the points gained at each timestep of the method, i.e. it conserves the modified Hamiltonian \(H'\).
+
+For a constrained system with a holonomic constraint \(f(q)\) and modified Hamiltonian \(H(p, q)\) the constrained Hamiltonian is
+\begin{align}
+H_c(p, q) = H(p, q) + \lambda f(q)
+\end{align}
+which leads to the system
+\begin{align}
+\dot{q} &= \frac{\partial H_c}{\partial p} = \frac{\partial H}{\partial p} \\
+\dot{p} &= - \frac{\partial H_c}{\partial q} = - (\frac{\partial H}{\partial q} + \lambda \frac{\partial f}{\partial q})\\
+0 &= \frac{\partial H_c}{\partial \lambda} = f(q)
+\end{align}
+For a constrained system, the constraint \(f\) must also be infinitely differentiable for the modified (and constrained) Hamiltonian to be exist. This is not the case for our constrained system, meaning that although our method is symplectic, it is not conserving of the modified Hamiltonian.
 
 
 \section{Method}
 
-We can formulate the simple flow problem as a constrained problem as follows. The undiscretised incompressible Euler equations can be written in Lagrangian form as:
+In this section we introduce our timestepping method that combines aspects of the optimal transport approach and the RATTLE algorithm for constrained systems. We can formulate the simple flow problem as a constrained problem as follows. Here, we consider \(n=2\), i.e. our domain \(\Omega \subset \R^2\). The non-discretised incompressible Euler equations can be written in Lagrangian form as:
 \begin{align}
 & \dot{m}(a, t) = u(a,t), \quad \text{contraint}: \: \dsmsq = 0 \\
 \iff
@@ -178,7 +201,7 @@ Algorithm 1:
  \end{cases} 
 \end{flalign*}
 
-For clarity, we note that the constraint in the first bracketed section of the algorithm is used to find the Lagrange multiplier \(\lambda^n\) such that the constraint is satisfied, which is then used to calculate \(u^{n+1/2}\) and hence \(m^{n+1}\). We do this using an iterative method, such as Newton. For the second bracketed section, the Lagrange multiplier \(\hat{\lambda}^{n+1}\) can be calculated directly from the constraint with no need for an iterative method.
+For clarity, we note that the constraint in the first bracketed section of the algorithm is used to find the Lagrange multiplier \(\lambda^n\) such that the constraint is satisfied, which is then used to calculate \(u^{n+1/2}\) and hence \(m^{n+1}\). We do this using an iterative method. For the second bracketed section, the Lagrange multiplier \(\hat{\lambda}^{n+1}\) can be calculated directly from the constraint with no need for an iterative method.
 
 Pseudo-Code for Algorithm 1:
 \begin{flalign*}
@@ -192,7 +215,9 @@ Pseudo-Code for Algorithm 1:
 & \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1}
 \end{flalign*}
 
-Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired. [see results]. The reason being that the constraint was possibly not capturing the full picture. The equality constraint was used assuming that the initial distance from incompressible \(c\) was the best we could do. However, what we observed was that the particle positions were sometimes falling inside this distance, and thus the constraint was actually harming the solution.
+Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of does not exist [see plots of h]. Instead, we use a black-box type of algorithm that is derivative-free. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method.
+
+Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired (see Section 4: Results). The reason being that the constraint was possibly not capturing the full picture. The equality constraint was used assuming that the initial distance from incompressible \(c\) was the best we could do. However, what we observed was that the particle positions were sometimes falling inside this distance, and thus the constraint was actually harming the solution.
 
 To solve this problem, we changed the constraint to an inequality constraint, so that we just desire that the particle positions lie within the the tolerance \(c\) from incompressible. Thus, we our problem is
 \begin{align}
@@ -237,7 +262,102 @@ Pseudo-Code for Algorithm 2:
 & \quad \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1}
 \end{flalign*}
 
+
+
 \section{Results}
+
+To test our method, we use two examples. First, we have a simple Beltrami flow in a unit square, where
+\begin{align}
+u = (-\cos(m_0 \pi) \sin(m_1 \pi), \: \sin(m_0 \pi) \cos(m_1 \pi))
+\end{align}
+where \(m_0, \: m_1\) are the horizontal and vertical components of the position \(m\) respectively. The Eulerian solution is that the velocity remains as this function.
+
+Our second example, still in the unit square, has \(n_v\) vortices placed in the domain with centres at positions \(C_i\) and weights \(w_i, \: i = 1,\dots,n_v\). We design our velocity for our flow as 
+\begin{align}
+u &= \nabla^\perp \phi, \\
+\phi &= \sum_{i=1}^{n_v} w_i \: \exp(\frac{|| m - C_i ||^2}{2 \sigma^2})
+\end{align}
+where \(\sigma\) is the standard deviation of the vortex strength from the centre.
+
+[
+1) N-c plot
+2) N-error plot
+3) Some Laguerre plots for Beltrami, for both Q and ours
+4) Energy-time plot for Beltrami, for both Q and ours
+5) Vortices initial Quiver
+6) Vortices Laguerre plots
+]
+
+\begin{figure}[h]
+\includegraphics[scale=0.5]{rattle-test/c-N}
+\centering
+\caption{A plot of initial distances from incompressible (c values) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 50 N values from 500 to 25000 in intervals of 500. Also plotted is a line of slope -1 on the log-log scale [blue line].}
+\centering
+\end{figure}
+
+\begin{figure}[h]
+\includegraphics[scale=0.5]{beltrami-square-rattle/error-N-007}
+\centering
+\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 10 N values from 5000 to 50000 in intervals of 5000. Also plotted is a line of slope \(\frac{1}{2}\) on the log-log scale [blue line].}
+\centering
+\end{figure}
+
+\begin{figure}[h]
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/125}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+	\includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/249}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+	\includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/energies}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+\centering
+\caption{Our new method running the Beltrami flow example over a time period of 1s. The number of particles used is \(N = 1000\), with a step size of \(\dt = 0.004s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. The colours used are only to help distinguish the particles as they travel. ((a) Initial positions, (b) after 125 timesteps, (c) after 249 timesteps). (d) A plot of the energy of the system against time. }
+\centering
+\end{figure}
+
+\begin{figure}[h]
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[scale=0.3]{vortices/quiver0}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[scale=0.3]{vortices/000}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+	\includegraphics[scale=0.3]{vortices/1000}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+	\includegraphics[scale=0.3]{vortices/1900}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+	\includegraphics[scale=0.3]{vortices/energies}
+        \caption{} \label{fig:timing2}
+    \end{subfigure}
+\centering
+\caption{Our new method running the Vortices example over a time period of 1s. The number of particles used is \(N = 2000\), with a step size of \(\dt = 0.0005s\). We used \(n_v = 3\) vortices with centres \(C_1 = [0.25, 0.25], C_2 = [0.75, 0.25] \) and \(C_3 = [0.5, 0.75]\) with weights \(w_1 = w_2 = w_3 = 0.1\), and a standard deviation \(\sigma = 0.1\). (a) A quiver plot of the initial velocity. For each particle, the arrow direction indicates the direction of the velocity at that position, while the thickness indicates the magnitude of the velocity. (b), (c), (d) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. The colours used are only to help distinguish the particles as they travel. ((b) Initial positions, (c) after 1000 timesteps, (d) after 1900 timesteps). (e) A plot of the energy of the system against time. }
+\centering
+\end{figure}
 
 
 
@@ -247,6 +367,9 @@ Pseudo-Code for Algorithm 2:
 In this report we have looked at setting out a potential new timestepping method for the incompressible Euler equations that involves optimal transport and a constrained symplectic algorithm. [Why is it good?] We have given some background to the method, as well as establishing its convergence numerically using a couple of examples. 
 
 When looking at implementing on the Eady model problem itself, we encountered issues relating to the aspect ratio of the large domain (about 100x larger in the horizontal than the vertical). One solution to this latter problem could be to redefine the distance metric used in the Laguerre cells definition given, to "penalise" distance moved in the vertical direction by the appropriate amount (the ratio). Ultimately, we would look to gain a mathematical proof for convergence and stability of the method, and look to implement it for the full Eady model problem with periodic boundary conditions, and see how it compares to the Eulerian solution.
+
+
+\bibliography{mres}
 
 
 \end{document}
