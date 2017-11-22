@@ -133,7 +133,9 @@ P_{\MN} \circ P_{\mathbb{S}}(m) &= \sum^N_{i=1} B_i \mathbbm{1}_{L_i}(m), \\
 B_i &:= \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N. 
 \end{align}
 
-Equations (13, 14) above are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. \cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise in time. A symplectic Hamiltonian is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
+Equations (13, 14) above are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. 
+
+\cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise in time. A symplectic Hamiltonian is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
 
 Computationally, problems arose with extending this method to geophysical fluids problems due to the difficulty in tuning the \(\epsilon\) parameter. We thus wanted our method to get rid of the need for the tuning of the parameter \(\epsilon\), that, as well as being difficult to tune, was being used to represent small oscillations that may interact with the internal waves of the Eady model, taking the flow out of hydrostatic balance. The subsequent idea was to answer the question "how do we remove the need for \(\epsilon\) and get rid of compressibility?".
 
@@ -194,18 +196,18 @@ In this section we introduce our timestepping method that combines aspects of th
 \end{align}
 Referring to equations (17-19), we are just setting \(V(\cdot) \equiv 0\) and \(g(\cdot) = d^2_{\Sb}(\cdot)\).
 
-Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. To address this, we choose an initial condition \(m(0) =: m^{(0)}\) and set
+Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. To address this, we choose an initial condition \(m(0) =: m^{0}\) and set
 \begin{align}
-c &:= d^{2}_{\mathbb{S}}(m^{(0)})
+c &:= d^{2}_{\mathbb{S}}(m^{0})
 \end{align}
-so \(c\) is independent of \(t\) and gives the "distance" from an incompressible state that the particles initially lie. We then solve
+so \(c\) is independent of \(t\) and gives the "distance" from an incompressible state that the particles initially lie. The initial condition \(m^0\) is found using Lloyd's algorithm, an iterative algorithm that randomly chooses a configuration of the particles in the domain and iterates to move them closer to an incompressible configuration \citep{merigot2017algorithm}. We then solve
 \begin{align}
  &\begin{cases}
   \dot{m} = u \\
   \dot{u} = \lambda \graddsmsq, \quad \lambda = \lambda(t) \text{ a Lagrange multiplier enforcing } \dsmsq = c.
  \end{cases} 
 \end{align}
-so that we keep the particle positions at this small initial distance \(c\) from incompressible.
+so that we keep the particle positions at this small initial distance \(c\) from incompressible. 
 
 Define, for each timestep \(n\), \(b^n := \nabla{d^{2}_{\Sb}(m^n)}\). Our modified RATTLE algorithm, applied to this problem, is then:
 
@@ -239,9 +241,9 @@ Pseudo-Code for Algorithm 1:
 & \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1}
 \end{flalign*}
 
-Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of does not exist - in fact, \cite{gallouet2016lagrangian} showed that the first derivative of \(\dsmsq\) only exists almost everywhere. Instead, we use a black-box type of algorithm that is derivative-free. Plotting the function \(h(\lambda^n)\) for various timesteps, we see that the behaviour of \(h\) is actually quite pleasant and that we only have a maximum of two roots for \(h\) (instead of potentially an oscillating function with many roots) (see Section 4: Results). Thus, we can find a physical root for \(h\) quite easily. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method. 
+Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of \(h\) does not exist - in fact, \cite{gallouet2016lagrangian} showed that the first derivative of \(d^2_\Sb(\cdot)\) only exists almost everywhere. Instead, we use a black-box type of algorithm that is derivative-free. Plotting the function \(h(\lambda^n)\) for various timesteps, we see that the behaviour of \(h\) is actually quite pleasant and that we only have a maximum of two roots for \(h\) (instead of potentially an oscillating function with many roots) (see Section 4: Results). Thus, we can find a physical root for \(h\) quite easily. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method. 
 
-Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired (see Section 4: Results). The reason being that the system was being over-constrained, as the particles can actually get closer to incompressible than \(c\). In Algorithm 1, the \(b^n\) term can be noisy, and so we do not wish to nudge the particles in a noisy direction every timestep.
+Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired if we increased the tolerance of the constraint, i.e. set \(c := 2 \; d^2_\Sb (m^0)\) (see Section 4: Results). The reason being that the system was being over-constrained, as the particles can actually get closer to incompressible than \(c\). In Algorithm 1, the \(b^n\) term can be noisy, and so we do not wish to nudge the particles in a noisy direction every timestep.
 
 To solve this problem, we changed the constraint to an inequality constraint, so that we just desire that the particle positions lie within the the tolerance \(c\) from incompressible. Thus, our problem is
 \begin{align}
@@ -294,7 +296,7 @@ In this section we present numerically calculated convergence results of our met
 We first look at the relationship between the initial distance from incompressible (c value) and the number of particles used for the initialisation of the model (N value). Figure \ref{fig:c-N} shows that \(c \propto 1/N\) i.e. an inversely proportional relationship. This indicates that as we increase the number of particles used for our run, the error from being incompressible upon setup decreases linearly.
 
 \begin{figure}[H]
-\includegraphics[scale=0.3]{rattle-test/c-N}
+\includegraphics[scale=0.5]{rattle-test/c-N}
 \centering
 \caption{A plot of initial distances from incompressible (c values) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 50 N values from 500 to 25000 in intervals of 500. Also plotted is a line of slope -1 on the log-log scale [blue line].}
 \centering
@@ -312,9 +314,9 @@ where \(m_0, \: m_1\) are the horizontal and vertical components of the position
 where \(m^{n_T}_{(p)}, u^{n_T}_{(p)}\) are the position and corresponding velocity of the particle \(p\) after \(n_T\) timesteps. The relationship seen in figure \ref{fig:error-N} indicates that the error decreases as we increase the number of particles used in the run. For figure \ref{fig:error-N}, we used 120 timesteps and an end time of 0.5s (and so a step size of \(\dt = 0.004167\)) for each run. 
 
 \begin{figure}[H]
-\includegraphics[scale=0.3]{beltrami-square-rattle/error-N}
+\includegraphics[scale=0.5]{beltrami-square-rattle/error-N}
 \centering
-\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line].}
+\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses], using our new method (Algorithm 2). Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line].}
 \centering
 \label{fig:error-N}
 \end{figure}
@@ -370,19 +372,19 @@ H(m, u) = \frac{1}{2} || u ||^2.
 \end{figure}
  
 \begin{figure}[H]
-   \begin{subfigure}[t]{0.25\textwidth}
+   \begin{subfigure}[t]{0.4\textwidth}
         \centering
-	\includegraphics[scale=0.2]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/energies}
+	\includegraphics[scale=0.3]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/energies}
         \caption{} \label{fig:beltrami-flow-energies-q}
     \end{subfigure}
-    \begin{subfigure}[t]{0.25\textwidth}
+    \begin{subfigure}[t]{0.4\textwidth}
         \centering
-	\includegraphics[scale=0.2]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/kinetic_energies}
+	\includegraphics[scale=0.3]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/kinetic_energies}
         \caption{} \label{fig:beltrami-flow-energies-q-ke}
     \end{subfigure}
-   \begin{subfigure}[t]{0.25\textwidth}
+   \begin{subfigure}[t]{0.4\textwidth}
         \centering
-	\includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/energies}
+	\includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/energies}
         \caption{} \label{fig:beltrami-flow-energies}
     \end{subfigure}
 \centering
@@ -431,9 +433,9 @@ Figures \ref{fig:vortices-000}, \ref{fig:vortices-1000} and \ref{fig:vortices-19
         \includegraphics[scale=0.2]{vortices/run1/quiver1900}
         \caption{} \label{fig:vortices-quiver1900}
     \end{subfigure}
-   \begin{subfigure}[t]{0.4\textwidth}
+   \begin{subfigure}[t]{1.\textwidth}
         \centering
-	\includegraphics[scale=0.2]{vortices/run1/energies}
+	\includegraphics[scale=0.3]{vortices/run1/energies}
         \caption{} \label{fig:vortices-energies}
     \end{subfigure}
 \centering
