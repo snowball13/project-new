@@ -7,8 +7,8 @@
 								% TeX will automatically convert eps --> pdf in pdflatex		
 \usepackage{caption}
 \usepackage{subcaption}
+\usepackage{float}
 \graphicspath{ {../results/} }
-
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{bbm}
@@ -17,8 +17,9 @@
 
 %SetFonts
 
+\usepackage{natbib}
 \usepackage{url}
-\bibliographystyle{plain}
+\bibliographystyle{elsarticle-harv}
 
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\MN}{\mathbb{M}_N}
@@ -54,7 +55,7 @@
 \maketitle
 \section{Introduction}
 
-\cite{hoskins1971atmospheric} introduced the the semi-geostrophic (SG) equations, an asymptotic limit as the Rossby number heads to \(0\) and the Froude number to \(\O(1)\) of the incompressible Euler-Boussinesq equations. \cite{cullen2006mathematical} considered looking at a vertical slice model of these equations (the Eady model) that is used to look at the formation and evolution of weather fronts, by using a coordinate transformation to give an optimal transport interpretation of the SG equations.
+\cite{hoskins1971atmospheric} introduced the the semi-geostrophic (SG) equations, an asymptotic limit as the Rossby number tends to \(0\) and the Froude number to \(\mathcal{O}(1)\) of the incompressible Euler-Boussinesq equations. \cite{cullen1993geometric} considered looking at a vertical slice model of these equations (the Eady model) that is used to look at the formation and evolution of weather fronts, by using a coordinate transformation to give an optimal transport interpretation of the SG equations (for further information on this, see \cite{cullen2006mathematical}).
 
 \cite{visram2014framework} then compared the SG numerics with the standard Eady-Boussinesq numerics, and found that the standard Boussinesq solution does not go to the SG solution as the Rossby number tends to \(0\). They hypothesised that the standard numerics are going to the wrong solution due to numerical dissipation. This was the motivation to then look at a new Lagrangian method for this frontal problem in weather forecasting, to see if that will lead to a solution that will tend to the SG solution. 
 
@@ -67,9 +68,9 @@ In Section 2 of this report, we provide some background on the optimal transport
 
 \subsection{Optimal Transport Approach}
 
-The Euler equations describe fluid particle motion under an incompressibility constraint. 
+We aim to build a method with a Lagrangian approach for solving the Eady model. The Euler equations describe fluid particle motion under an incompressibility constraint. \cite{brenier1989least} introduced the idea of "distance" between a Lagrangian flow map and the space of measure preserving maps, which naturally leads to the constraint of incompressibility being equivalent to this distance being zero. The challenge here is representing this constraint numerically.
 
-Brenier (ref) introduced the idea of "distance" between a Lagrangian flow map and the space of measure preserving maps, which naturally leads to the constraint of incompressibility being equivalent to this distance being zero. Consider two maps \(m_1, m_2 \: : \: \Omega \to \Omega\) for some domain \(\Omega \subset \R^n, \: n \in \N\). We can define a distance between these two maps simply by using the \(L^2\)-norm, i.e. letting \(\M := L^2(\Omega)\), 
+Consider two maps \(m_1, m_2 \: : \: \Omega \to \Omega\) for some domain \(\Omega \subset \R^n, \: n \in \N\). We can define a distance between these two maps simply by using the \(L^2\)-norm, i.e. letting \(\M := L^2(\Omega)\), 
 \begin{align}
 d^2(m_1, m_2) := \int_\Omega || m_1(a) - m_2(a) || \: \mathrm{d}^2 a, \quad m_1, m_2 \in \M.
 \end{align}
@@ -113,7 +114,7 @@ From \cite{gallouet2016lagrangian}, a calculatable formula for \(\graddsmsq\) ex
 
 Since \(\Sb\) is closed but not convex, the orthogonal projection of a map in \(\Sb\) exists, but is not uniquely defined. Thus it is simply given as any map that is a projection. In other words, a projection of \(m \in \M\), \(P_\Sb(m)\), is any point satisfying
 \begin{align}
-|| P_\Sb(m) - m || &= \dsmsq.
+|| P_\Sb(m) - m ||^2 &= \dsmsq.
 \end{align}
 We also denote the orthogonal projection mapping on \(\MN\) by \(P_{\MN}\). The following proposition was proved by \cite{gallouet2016lagrangian}.
 
@@ -132,15 +133,38 @@ P_{\MN} \circ P_{\mathbb{S}}(m) &= \sum^N_{i=1} B_i \mathbbm{1}_{L_i}(m), \\
 B_i &:= \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N. 
 \end{align}
 
-Equations (13, 14) above are implemented in a code Library \cite{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. \cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise in time. A symplectic Hamiltonian is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
+Equations (13, 14) above are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. \cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise in time. A symplectic Hamiltonian is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
 
-Computationally, problems arose with extending this method to geophysical fluids problems due to the difficulty in tuning the \(\epsilon\) parameter. [More required]. The subsequent idea was to answer the question "how do we remove the need for \(\epsilon\) and get rid of compressibility?".
+Computationally, problems arose with extending this method to geophysical fluids problems due to the difficulty in tuning the \(\epsilon\) parameter. We thus wanted our method to get rid of the need for the tuning of the parameter \(\epsilon\), that, as well as being difficult to tune, was being used to represent small oscillations that may interact with the internal waves of the Eady model, taking the flow out of hydrostatic balance. The subsequent idea was to answer the question "how do we remove the need for \(\epsilon\) and get rid of compressibility?".
 
 \subsection{RATTLE Algorithm and Symplecticity}
 
-\cite{leimkuhler1994symplectic} describes the RATTLE algorithm that we modify to be part of our timestepping method. Verlet \cite{verlet1967computer} used a two-step discretisation for unconstrained problems like (7, 8), originally devised to be applied to molecular dynamics simulations. \cite{ryckaert1977numerical} introduced a direct numerical integration scheme called SHAKE based on the Verlet method that incorporates a holonomic constraint on the system (a constraint on one of the variables). \cite{andersen1983rattle} adapted this into the basis for an algorithm known as RATTLE, that preserves other invariants.
+\cite{leimkuhler1994symplectic} describes the RATTLE algorithm that we modify to be part of our timestepping method. \cite{verlet1967computer} used a two-step discretisation for unconstrained problems like (7, 8), originally devised to be applied to molecular dynamics simulations. \cite{ryckaert1977numerical} introduced a direct numerical integration scheme called SHAKE based on the Verlet method that incorporates a holonomic constraint on the system (a constraint on one of the variables). \cite{andersen1983rattle} adapted this into the basis for an algorithm known as RATTLE, that preserves other invariants.
 
-Hamiltonian systems of differential equations like (7, 8) have a flow that preserves a symplectic structure. Importantly, it has been established that symplectic methods have better long-term stability properties than non-symplectic methods \cite{okunbor1992explicit}. In \cite{ruth1983canonical} it was noted that the Verlet method is symplectic, and \cite{leimkuhler1994symplectic} confirms that RATTLE is also symplectic. 
+For clarity, the RATTLE algorithm as described by \cite{leimkuhler1994symplectic} is as follows. Consider the constrained system
+\begin{align}
+\dot{q} &= p, \\
+\dot{p} &= - \nabla_q V(q) + \lambda g'(q), \\
+g(q) &= 0
+\end{align}
+The RATTLE algorithm is then:
+\begin{flalign*}
+ & \quad
+ \begin{cases}
+  q^{n+1} = m^{n} + \dt \; u^{n+1/2}  \\
+  p^{n+1/2} = p^n - \frac{\dt}{2} \nabla_q V(q^n) + \frac{\dt}{2} \lambda^n g'(q^n) \\
+  \quad \text{where } \lambda^n \text{ is chosen so that } g'(q^{n+1}) = 0
+ \end{cases}&& \\
+ & \quad \text{and, } \\
+ & \quad 
+ \begin{cases}
+  p^{n+1} = p^{n+1/2} - \frac{\dt}{2} \nabla_q V(q^{n+1}) + \frac{\dt}{2} \lambda^n g'(q^{n+1}) \\
+  \quad \text{where } \hat{\lambda}^{n+1} \text{ is chosen so that } g'(q^{n+1})p^{n+1} = 0
+ \end{cases} 
+\end{flalign*}
+where the superscript \(n\) refers to the current timestep, and \(\dt\) is the time step size.
+
+Hamiltonian systems of differential equations like (7, 8) have a flow that preserves a symplectic structure. Importantly, it has been established that symplectic methods have better long-term stability properties than non-symplectic methods \citep{okunbor1992explicit}. In \cite{ruth1983canonical} it was noted that the Verlet method is symplectic, and \cite{leimkuhler1994symplectic} confirms that RATTLE is also symplectic. 
 
 For a symplectic timestepping method, there exists a modified Hamiltonian \(H'(p, q) = H(p, q) + \dt^k \Delta H(p, q, \dt)\) if \(H\) is infinitely differentiable, such that solutions of the modified Hamiltonian system corresponding to \(H'\) pass exactly through the points gained at each timestep of the method, i.e. it conserves the modified Hamiltonian \(H'\).
 
@@ -168,12 +192,12 @@ In this section we introduce our timestepping method that combines aspects of th
   \dot{u} = \lambda \graddsmsq, \quad \lambda = \lambda(t) \text{ a Lagrange multiplier enforcing } \dsmsq = 0.
  \end{cases} 
 \end{align}
+Referring to equations (17-19), we are just setting \(V(\cdot) \equiv 0\) and \(g(\cdot) = d^2_{\Sb}(\cdot)\).
 
 Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. To address this, we choose an initial condition \(m(0) =: m^{(0)}\) and set
 \begin{align}
 c &:= d^{2}_{\mathbb{S}}(m^{(0)})
 \end{align}
-
 so \(c\) is independent of \(t\) and gives the "distance" from an incompressible state that the particles initially lie. We then solve
 \begin{align}
  &\begin{cases}
@@ -215,11 +239,11 @@ Pseudo-Code for Algorithm 1:
 & \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1}
 \end{flalign*}
 
-Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of does not exist [see plots of h]. Instead, we use a black-box type of algorithm that is derivative-free. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method.
+Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of does not exist - in fact, \cite{gallouet2016lagrangian} showed that the first derivative of \(\dsmsq\) only exists almost everywhere. Instead, we use a black-box type of algorithm that is derivative-free. Plotting the function \(h(\lambda^n)\) for various timesteps, we see that the behaviour of \(h\) is actually quite pleasant and that we only have a maximum of two roots for \(h\) (instead of potentially an oscillating function with many roots) (see Section 4: Results). Thus, we can find a physical root for \(h\) quite easily. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method. 
 
-Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired (see Section 4: Results). The reason being that the constraint was possibly not capturing the full picture. The equality constraint was used assuming that the initial distance from incompressible \(c\) was the best we could do. However, what we observed was that the particle positions were sometimes falling inside this distance, and thus the constraint was actually harming the solution.
+Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired (see Section 4: Results). The reason being that the system was being over-constrained, as the particles can actually get closer to incompressible than \(c\). In Algorithm 1, the \(b^n\) term can be noisy, and so we do not wish to nudge the particles in a noisy direction every timestep.
 
-To solve this problem, we changed the constraint to an inequality constraint, so that we just desire that the particle positions lie within the the tolerance \(c\) from incompressible. Thus, we our problem is
+To solve this problem, we changed the constraint to an inequality constraint, so that we just desire that the particle positions lie within the the tolerance \(c\) from incompressible. Thus, our problem is
 \begin{align}
  &\begin{cases}
   \dot{m} = u \\
@@ -263,123 +287,170 @@ Pseudo-Code for Algorithm 2:
 \end{flalign*}
 
 
-
 \section{Results}
+
+In this section we present numerically calculated convergence results of our method detailed in Algorithm 2, with the computer code written in Python based on the psuedo-code for Algorithm 2 detailed in Section 3, utilising the code-library of \cite{gallouet2016lagrangian} \citep{merigotpymongeampere}. We also present comparisons with the code of \cite{gallouet2016lagrangian}, as well as displaying some results of our method when applied to a more complex example.
 
 We first look at the relationship between the initial distance from incompressible (c value) and the number of particles used for the initialisation of the model (N value). Figure \ref{fig:c-N} shows that \(c \propto 1/N\) i.e. an inversely proportional relationship. This indicates that as we increase the number of particles used for our run, the error from being incompressible upon setup decreases linearly.
 
-To test our method further, we use two examples. First, we have a simple Beltrami flow in a unit square, initialised with velocity \(u^0 = U(m^0)\) where
-\begin{align}
-U(m) = (-\cos(m_0 \pi) \sin(m_1 \pi), \: \sin(m_0 \pi) \cos(m_1 \pi))
-\end{align}
-where \(m_0, \: m_1\) are the horizontal and vertical components of the position \(m\) respectively. The Eulerian solution is that the velocity remains as this function. In figure \ref{fig:error-N} we see that the \(E \propto 1/N^2\), where \(E\) is the \(L^2\mathrm{-error}\),
-\begin{align}
-E = (\frac{u^{n_t} - U(m^{n_t})}{N})^\frac{1}{2}
-\end{align}
-where \(m^{n_t}, u^{n_t}\) are the positions and corresponding velocities of the particles after \(n_t\) timesteps. For figure \ref{fig:error-N}, we used 120 timesteps and an end time of 0.5s (and so a step size of \(\dt = 0.004167\)) for each run. The relationship indicates that the error decreases as we increase the number of particles used in the run. 
-
-We also look at comparing the results of our model with that of \cite{gallouet2016lagrangian} when running the Beltrami flow over a time period of 1s, using \(N = 1000\) particles and a step size of \(\dt = 0.004s\). Figure \ref{fig:beltrami-flow} shows a visualisation of the flow using three snapshots of the simulation when using each algorithm. We can see that the results compare well. Further, we also see that the [energy].
- 
-Our second example, still in the unit square, has \(n_v\) vortices placed in the domain with centres at positions \(C_i\) and weights \(w_i, \: i = 1,\dots,n_v\). We design our flow to be initialised with velocity \(u^0 = U(m^0)\) where
-\begin{align}
-U(m) &= \nabla^\perp \phi(m), \\
-\phi(m) &= \sum_{i=1}^{n_v} w_i \: \exp(\frac{|| m - C_i ||^2}{2 \sigma^2})
-\end{align}
-where \(\sigma\) is the standard deviation of the vortex strength from the centre.
-
-Figure \ref{fig:vortices} shows a visualisation of the flow, over a time period of 1s. The number of particles used is \(N = 2000\), with a step size of \(\dt = 0.0005s\). We used \(n_v = 3\) vortices with centres \(C_1 = [0.25, 0.25], C_2 = [0.75, 0.25] \) and \(C_3 = [0.5, 0.75]\) with weights \(w_1 = w_2 = w_3 = 0.1\), and a standard deviation \(\sigma = 0.1\). We also note the [energy].
-
-[
-0) plots of h(lambda)
-1) N-c plot
-2) N-error plot
-3) Some Laguerre plots for Beltrami, for both Q and ours
-4) Energy-time plot for Beltrami, for both Q and ours
-5) Vortices initial Quiver
-6) Vortices Laguerre plots
-]
-
-\begin{figure}[h]
-\includegraphics[scale=0.5]{rattle-test/c-N}
+\begin{figure}[H]
+\includegraphics[scale=0.3]{rattle-test/c-N}
 \centering
 \caption{A plot of initial distances from incompressible (c values) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 50 N values from 500 to 25000 in intervals of 500. Also plotted is a line of slope -1 on the log-log scale [blue line].}
 \centering
 \label{fig:c-N}
 \end{figure}
 
-\begin{figure}[h]
-\includegraphics[scale=0.5]{beltrami-square-rattle/error-N-007}
+To test our method further, we use two examples. First, we have a simple Beltrami flow in a unit square, with each particle being initialised with a position \(m^0\) and velocity \(u^0 = U(m^0)\) where
+\begin{align}
+U(m) = (-\cos(m_0 \pi) \sin(m_1 \pi), \: \sin(m_0 \pi) \cos(m_1 \pi))
+\end{align}
+where \(m_0, \: m_1\) are the horizontal and vertical components of the position \(m\) respectively. Note the Eulerian solution is time independent. In figure \ref{fig:error-N} we see that \(\text{e}_{rr} \propto 1/N^{2.86}\), where \(\text{e}_{rr}\) is the \(L^2\mathrm{-error}\) over all particles,
+\begin{align}
+\text{e}_{rr} = (\frac{1}{N} \sum_{p = 1}^{N} || u^{n_T}_{(p)} - U(m^{n_T}_{(p)}) ||^2)^\frac{1}{2}
+\end{align}
+where \(m^{n_T}_{(p)}, u^{n_T}_{(p)}\) are the position and corresponding velocity of the particle \(p\) after \(n_T\) timesteps. The relationship seen in figure \ref{fig:error-N} indicates that the error decreases as we increase the number of particles used in the run. For figure \ref{fig:error-N}, we used 120 timesteps and an end time of 0.5s (and so a step size of \(\dt = 0.004167\)) for each run. 
+
+\begin{figure}[H]
+\includegraphics[scale=0.3]{beltrami-square-rattle/error-N}
 \centering
-\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 10 N values from 5000 to 50000 in intervals of 5000. Also plotted is a line of slope \(\frac{1}{2}\) on the log-log scale [blue line].}
+\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line].}
 \centering
 \label{fig:error-N}
 \end{figure}
 
-\begin{figure}[h]
-   \begin{subfigure}[t]{0.45\textwidth}
+We also look at comparing the results of our model with that of \cite{gallouet2016lagrangian} when running the Beltrami flow over a time period of 1s, using \(N = 1000\) particles and a step size of \(\dt = 0.004s\). Figure \ref{fig:beltrami-flow} shows a visualisation of the flow using three snapshots of the simulation when using each algorithm. We can see that the results compare well. Further, we also see that in figure \ref{fig:beltrami-flow-energies} that the calculated energy of the system at each timestep stays relatively constant, showing no real oscillations or dissipation. This is compared to figures \ref{fig:beltrami-flow-energies-q} and \ref{fig:beltrami-flow-energies-q-ke}, where we see a significant oscillation of the total energy of the system when using the method described in \cite{gallouet2016lagrangian}. The energy at timestep \(n\) in figure \ref{fig:beltrami-flow-energies-q} is calculated as
+\begin{align}
+E^n = \frac{1}{N} \sum_{p = 1}^{N} \frac{1}{2} || u^n_{(p)} ||^2 + \frac{1}{2 \epsilon^2} d^2_{\Sb}(m^n_{(p)}) 
+\end{align} 
+which is the Lagrangian approximation of the integral of the modified Hamiltonian given in equation (9) over the whole domain \(\Omega\). The energy at timestep \(n\) in figure \ref{fig:beltrami-flow-energies-q-ke} is simply just the kinetic energy of the system, i.e.
+\begin{align}
+E^n = \frac{1}{N} \sum_{p = 1}^{N} \frac{1}{2} || u^n_{(p)} ||^2
+\end{align} 
+which is the Lagrangian approximation of the kinetic energy over the whole domain \(\Omega\). This kinetic energy is then comparable to figure \ref{fig:beltrami-flow-energies} which shows the energy as equation (32) also, i.e. the integral of the Hamiltonian
+\begin{align}
+H(m, u) = \frac{1}{2} || u ||^2.
+\end{align}
+
+\begin{figure}[H]
+     \begin{subfigure}[t]{0.25\textwidth}
         \centering
-        \includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
+        \includegraphics[scale=0.2]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/000}
+        \caption{} \label{fig:beltrami-flow-000-q}
+    \end{subfigure}
+    \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/125}
+        \caption{} \label{fig:beltrami-flow-125-q}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.2]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/249}
+        \caption{} \label{fig:beltrami-flow-249-q}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
         \caption{} \label{fig:beltrami-flow-000}
     \end{subfigure}
-   \begin{subfigure}[t]{0.45\textwidth}
+   \begin{subfigure}[t]{0.25\textwidth}
         \centering
-        \includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/125}
+        \includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/125}
         \caption{} \label{fig:beltrami-flow-125}
     \end{subfigure}
-   \begin{subfigure}[t]{0.45\textwidth}
+   \begin{subfigure}[t]{0.25\textwidth}
         \centering
-	\includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/249}
+	\includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/249}
         \caption{} \label{fig:beltrami-flow-249}
     \end{subfigure}
-   \begin{subfigure}[t]{0.45\textwidth}
-        \centering
-	\includegraphics[scale=0.3]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/energies}
-        \caption{} \label{fig:beltrami-flow-energies}
-    \end{subfigure}
 \centering
-\caption{Our new method running the Beltrami flow example over a time period of 1s. The number of particles used is \(N = 1000\), with a step size of \(\dt = 0.004s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. The colours used are only to help distinguish the particles as they travel. ((a) Initial positions, (b) after 125 timesteps, (c) after 249 timesteps). (d) A plot of the energy of the system against time. }
+\caption{The method of \cite{gallouet2016lagrangian} and our new method running the Beltrami flow example over a time period of 1s. The number of particles used is \(N = 1000\), with a step size of \(\dt = 0.004s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions using the method of \cite{gallouet2016lagrangian}. ((a) Initial positions, (b) after 125 timesteps, (c) after 249 timesteps). (d), (e), (f) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions using our new method. ((d) Initial positions, (e) after 125 timesteps, (f) after 249 timesteps). Note the colours used are only to help distinguish the particles as they travel.}
 \centering
 \label{fig:beltrami-flow}
 \end{figure}
-
-\begin{figure}[h]
-   \begin{subfigure}[t]{0.45\textwidth}
+ 
+\begin{figure}[H]
+   \begin{subfigure}[t]{0.25\textwidth}
         \centering
-        \includegraphics[scale=0.3]{vortices/quiver0}
-        \caption{} \label{fig:vortices-quiver0}
+	\includegraphics[scale=0.2]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/energies}
+        \caption{} \label{fig:beltrami-flow-energies-q}
     \end{subfigure}
-   \begin{subfigure}[t]{0.45\textwidth}
+    \begin{subfigure}[t]{0.25\textwidth}
         \centering
-        \includegraphics[scale=0.3]{vortices/000}
+	\includegraphics[scale=0.2]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/kinetic_energies}
+        \caption{} \label{fig:beltrami-flow-energies-q-ke}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/energies}
+        \caption{} \label{fig:beltrami-flow-energies}
+    \end{subfigure}
+\centering
+\caption{The method of \cite{gallouet2016lagrangian} and our new method running the Beltrami flow example over a time period of 1s. The number of particles used is \(N = 1000\), with a step size of \(\dt = 0.004s\). (a) A plot of residual (difference between initial and current value) of the total modified energy of the system against time for the run using the method of \cite{gallouet2016lagrangian}. (b) A plot of the residual of just the kinetic energy of the system against time for the run using the method of \cite{gallouet2016lagrangian}. (c) A plot the residual of the total (kinetic) energy of the system against time for the run using our new method.}
+\centering
+\label{fig:beltrami-flow-energy}
+\end{figure}
+ 
+Our second example, still in the unit square, has \(n_V\) vortices placed in the domain with centres at positions \(C_i\) and weights \(w_i, \: i = 1,\dots,n_V\). Each particle is initialised with a position \(m^0\) and a and velocity \(u^0 = U(m^0)\) where
+\begin{align}
+U(m) &= \nabla^\perp \phi(m), \\
+\phi(m) &= \sum_{i=1}^{n_v} w_i \: \exp(\frac{|| m - C_i ||^2}{2 \sigma^2})
+\end{align}
+where \(\sigma\) is the standard deviation of the vortex strength from the centre.
+
+Figures \ref{fig:vortices-000}, \ref{fig:vortices-1000} and \ref{fig:vortices-1900} show a visualisation of the flow, over a time period of 1s. The number of particles used is \(N = 2000\), with a step size of \(\dt = 0.0005s\). We used \(n_V = 3\) vortices with centres \(C_1 = [0.25, 0.25], C_2 = [0.75, 0.25] \) and \(C_3 = [0.5, 0.75]\) with weights \(w_1 = w_2 = w_3 = 0.1\), and a standard deviation \(\sigma = 0.1\). Figures \ref{fig:vortices-quiver0}, \ref{fig:vortices-quiver1000} and \ref{fig:vortices-quiver1900}  show the velocity vectors at the same three snapshots. We also note the energy remains fairly constant, as seen in figure \ref{fig:vortices-energies}.
+
+\begin{figure}[H]
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{vortices/run1/000}
         \caption{} \label{fig:vortices-000}
     \end{subfigure}
-   \begin{subfigure}[t]{0.45\textwidth}
+   \begin{subfigure}[t]{0.25\textwidth}
         \centering
-	\includegraphics[scale=0.3]{vortices/1000}
+	\includegraphics[scale=0.2]{vortices/run1/1000}
         \caption{} \label{fig:vortices-1000}
     \end{subfigure}
-   \begin{subfigure}[t]{0.45\textwidth}
+   \begin{subfigure}[t]{0.25\textwidth}
         \centering
-	\includegraphics[scale=0.3]{vortices/1900}
+	\includegraphics[scale=0.2]{vortices/run1/1900}
         \caption{} \label{fig:vortices-1900}
     \end{subfigure}
-   \begin{subfigure}[t]{0.45\textwidth}
+   \begin{subfigure}[t]{0.25\textwidth}
         \centering
-	\includegraphics[scale=0.3]{vortices/energies}
+        \includegraphics[scale=0.2]{vortices/run1/quiver0}
+        \caption{} \label{fig:vortices-quiver0}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{vortices/run1/quiver1000}
+        \caption{} \label{fig:vortices-quiver1000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{vortices/run1/quiver1900}
+        \caption{} \label{fig:vortices-quiver1900}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+	\includegraphics[scale=0.2]{vortices/run1/energies}
         \caption{} \label{fig:vortices-energies}
     \end{subfigure}
 \centering
-\caption{Our new method running the Vortices example over a time period of 1s. The number of particles used is \(N = 2000\), with a step size of \(\dt = 0.0005s\). We used \(n_v = 3\) vortices with centres \(C_1 = [0.25, 0.25], C_2 = [0.75, 0.25] \) and \(C_3 = [0.5, 0.75]\) with weights \(w_1 = w_2 = w_3 = 0.1\), and a standard deviation \(\sigma = 0.1\). (a) A quiver plot of the initial velocity. For each particle, the arrow direction indicates the direction of the velocity at that position, while the thickness indicates the magnitude of the velocity. (b), (c), (d) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. The colours used are only to help distinguish the particles as they travel. ((b) Initial positions, (c) after 1000 timesteps, (d) after 1900 timesteps). (e) A plot of the energy of the system against time. }
+\caption{Our new method running the Vortices example over a time period of 1s. The number of particles used is \(N = 2000\), with a step size of \(\dt = 0.0005s\). We used \(n_V = 3\) vortices with centres \(C_1 = [0.35, 0.35], C_2 = [0.65, 0.35] \) and \(C_3 = [0.5, 0.65]\) with weights \(w_1 = w_2 = w_3 = 0.1\), and a standard deviation \(\sigma = 0.1\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. The colours used are only to help distinguish the particles as they travel. ((a) Initial positions, (b) after 1000 timesteps, (c) after 1900 timesteps). (d), (e), (f) Three snapshots of the velocities at different times using quiver plots. For each particle, the arrow direction indicates the direction of the velocity at that position, while the thickness indicates the magnitude of the velocity ((d) Initial positions, (e) after 1000 timesteps, (f) after 1900 timesteps). (g) A plot of the energy residual of the system against time. }
 \centering
 \label{fig:vortices}
 \end{figure}
 
-
+[
+0) plots of h(lambda)
+0.5) plots and quiver of equality constrained beltrami
+]
 
 
 \section{Summary and Outlook}
 
-In this report we have looked at setting out a potential new timestepping method for the incompressible Euler equations that involves optimal transport and a constrained symplectic algorithm. [Why is it good?] We have given some background to the method, as well as establishing its convergence numerically using a couple of examples. 
+The motivation for this report was to look for a new Lagrangian method for solving fronts in weather forecasting. In this report we have looked at setting out a potential new timestepping method for the incompressible Euler equations that involves optimal transport and a constrained symplectic algorithm. We have discussed some background to the method, as well as establishing its convergence numerically using a couple of examples. Our method gets rid of the need for the tuning of the parameter \(\epsilon\) from the method proposed by \cite{gallouet2016lagrangian}, that we found was difficult to tune s well as being used to represent small oscillations that may interact with the internal waves of the Eady model, taking the flow out of hydrostatic balance. Our method also seems to compare favourable with that of \cite{gallouet2016lagrangian} for the simple flows. 
 
 When looking at implementing on the Eady model problem itself, we encountered issues relating to the aspect ratio of the large domain (about 100x larger in the horizontal than the vertical). One solution to this latter problem could be to redefine the distance metric used in the Laguerre cells definition given, to "penalise" distance moved in the vertical direction by the appropriate amount (the ratio). Ultimately, we would look to gain a mathematical proof for convergence and stability of the method, and look to implement it for the full Eady model problem with periodic boundary conditions, and see how it compares to the Eulerian solution.
 
