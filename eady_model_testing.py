@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
 
     elif run_number == 1:
-        nruns = 10
+        nruns = 8
         t = 0.5
         c_scaling = 1.
         nt = 120
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         dens = ma.Density_2(square)
 
         errorL2 = np.zeros(nruns)
-        N = np.array([5000 * i for i in range(1, nruns+1)])
+        N = np.array([2500 * i for i in range(1, nruns+1)])
 
         myfile = open('%s/N-errorL2-values.txt' % (bname), 'w')
         myfile.close()
@@ -80,11 +80,8 @@ if __name__ == "__main__":
             # Plot as we go
             plt.cla()
             plt.loglog(1./N[:i+1], errorL2[:i+1], 'kx')
+            plt.loglog(1./N, np.sqrt(1./N), 'b')
+            plt.loglog(1./N, 1./N, 'r')
             pylab.savefig('%s/error-N-%03d.png' % (bname, i))
 
             print i
-
-        plt.loglog(1./N, errorL2, 'kx')
-        plt.loglog(1./N, np.sqrt(1./N), 'b')
-        plt.loglog(1./N, 1./N, 'r')
-        pylab.savefig('%s/error-N.png' % bname)

@@ -170,7 +170,7 @@ def beltrami_rattle(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1.,
 
     if plot:
         plt.clf()
-        plt.plot(dt*np.array(range(nt)), energies[:, 0])
+        plt.plot(dt*np.array(range(nt)), np.abs(energies[:, 0] - energies[0, 0]))
         pylab.savefig('%s/energies.png' % bname)
 
     return errorL2

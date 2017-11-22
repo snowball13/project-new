@@ -9,8 +9,8 @@ import matplotlib.tri as tri
 from scipy import optimize
 
 
-def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
-                sigma=0.5, bname="results/vortices/", verbose=False):
+def vortices(X, dens, bbox, N, t, nt, weights, centres, bname, gamma=2.,
+                sigma=0.5, c_scaling=1., verbose=False):
 
     a = 0.33
     b = 0.66
@@ -21,14 +21,6 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
     colors[ii,0] = 1.
     colors[jj,1] = 1.
     colors[kk,2] = 1.
-
-    # Setup the vortices
-    no_of_vortices = 3
-    weights = np.ones(no_of_vortices) * 0.1
-    centres = np.zeros((no_of_vortices, 2))
-    centres[0, :] = np.array([0.25, 0.25])
-    centres[1, :] = np.array([0.75, 0.25])
-    centres[2, :] = np.array([0.5, 0.75])
 
 
     # RATTLE method
@@ -209,7 +201,7 @@ def vortices(X, dens, bbox, N=1000, t=1., nt=10, c_scaling=1., gamma=2.,
         write_values(energies[i, :], dist_res, bname)
 
     plt.clf()
-    plt.plot(dt*np.array(range(nt)), energies[:, 0])
+    plt.plot(dt*np.array(range(nt)), np.abs(energies[:, 0] - energies[0, 0]))
     pylab.savefig('%s/energies.png' % bname)
 
     return errorL2
