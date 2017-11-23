@@ -133,7 +133,8 @@ P_{\MN} \circ P_{\mathbb{S}}(m) &= \sum^N_{i=1} B_i \mathbbm{1}_{L_i}(m), \\
 B_i &:= \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N. 
 \end{align}
 
-Equations (13, 14) above are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. 
+We note that the finding the \(\psi\)'s that satisfy equation (12) is done using an efficient iterative method (a damped Newton algorithm) \citep{merigot2017algorithm}. Equations (13, 14) above are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}.  For clarity, in this report, we refer to \(m\) being a collection of particles, where each particle \(i=1,\dots,N\) has its own subdomain \(\omega_i\), and simply holds the values of \(m(\omega_i)\) and \(u(\omega_i)\) for its position and velocity respectively.
+[Is this a good way of explaining this? I realised that this concept was missing from my report].
 
 \cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise in time. A symplectic Hamiltonian is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
 
@@ -196,11 +197,11 @@ In this section we introduce our timestepping method that combines aspects of th
 \end{align}
 Referring to equations (17-19), we are just setting \(V(\cdot) \equiv 0\) and \(g(\cdot) = d^2_{\Sb}(\cdot)\).
 
-Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. To address this, we choose an initial condition \(m(0) =: m^{0}\) and set
+Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. To address this, we choose an initial configuration of particles \(m^0\) using a version of Lloyd's algorithm \citep{merigot2017algorithm}. This is an iterative algorithm that initially randomly chooses a configuration of the particles in the domain. The process then calculates the Laguerre cells for each particle so that (12) is satisfied, and "moves" the particles to that each is set as the centroid of its respective cell, before the process is repeated. We then set
 \begin{align}
 c &:= d^{2}_{\mathbb{S}}(m^{0})
 \end{align}
-so \(c\) is independent of \(t\) and gives the "distance" from an incompressible state that the particles initially lie. The initial condition \(m^0\) is found using Lloyd's algorithm, an iterative algorithm that randomly chooses a configuration of the particles in the domain and iterates to move them closer to an incompressible configuration \citep{merigot2017algorithm}. We then solve
+so \(c\) is independent of \(t\) and gives the "distance" from an incompressible state that the particles initially lie. We then solve
 \begin{align}
  &\begin{cases}
   \dot{m} = u \\
@@ -230,22 +231,27 @@ Algorithm 1:
 For clarity, we note that the constraint in the first bracketed section of the algorithm is used to find the Lagrange multiplier \(\lambda^n\) such that the constraint is satisfied, which is then used to calculate \(u^{n+1/2}\) and hence \(m^{n+1}\). We do this using an iterative method. For the second bracketed section, the Lagrange multiplier \(\hat{\lambda}^{n+1}\) can be calculated directly from the constraint with no need for an iterative method.
 
 Pseudo-Code for Algorithm 1:
-\begin{flalign*}
-& \quad \text{Set } m^0, u^0, \text{ and define }b^0 = \nabla{d^{2}_{\Sb}(m^0)} && \\
-& \quad \text{FOR } n = 0,1,\dots \\
-& \quad \quad \text{Solve, for } \lambda^n: h(\lambda^n) := d^{2}_{\Sb}(m^n + \dt + u^n - \frac{\dt}{2} \lambda^n b^n) - c = 0 \\
-& \quad \quad \text{Set } u^{n+1/2} = u^n - \frac{\dt}{2} \lambda^n b^n \\
-& \quad \quad \text{Set } m^{n+1} = m^{n} + \dt \; u^{n+1/2} \\
-& \quad \quad \text{Set } b^{n+1} = \nabla{d^{2}_{\Sb}(m^{n+1})} \\
-& \quad \quad \text{Set } \hat{\lambda}^{n+1} = \frac{2 \; u^{n+1} \cdot b^{n+1}}{\dt \; || b^{n+1} || ^2} \\
-& \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1}
-\end{flalign*}
+\begin{flalign}
+& \quad \text{Set } m^0, u^0, \text{ and define }b^0 = \nabla{d^{2}_{\Sb}(m^0)} && \nonumber \\
+& \quad \text{FOR } n = 0,1,\dots \nonumber \\
+& \quad \quad \text{Define } h(\lambda) := d^{2}_{\Sb}(m^n + \dt \; u^n - \frac{\dt}{2} \lambda b^n) - c \\
+& \quad \quad \text{Solve, for } \lambda^n: h(\lambda^n) = 0 \nonumber \\
+& \quad \quad \text{Set } u^{n+1/2} = u^n - \frac{\dt}{2} \lambda^n b^n \nonumber \\
+& \quad \quad \text{Set } m^{n+1} = m^{n} + \dt \; u^{n+1/2} \nonumber \\
+& \quad \quad \text{Set } b^{n+1} = \nabla{d^{2}_{\Sb}(m^{n+1})} \nonumber \\
+& \quad \quad \text{Set } \hat{\lambda}^{n+1} = \frac{2 \; u^{n+1} \cdot b^{n+1}}{\dt \; || b^{n+1} || ^2} \nonumber \\
+& \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1} \nonumber
+\end{flalign}
 
-Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of \(h\) does not exist - in fact, \cite{gallouet2016lagrangian} showed that the first derivative of \(d^2_\Sb(\cdot)\) only exists almost everywhere. Instead, we use a black-box type of algorithm that is derivative-free. Plotting the function \(h(\lambda^n)\) for various timesteps, we see that the behaviour of \(h\) is actually quite pleasant and that we only have a maximum of two roots for \(h\) (instead of potentially an oscillating function with many roots) (see Section 4: Results). Thus, we can find a physical root for \(h\) quite easily. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method. 
+Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of \(h\) does not exist - in fact, \cite{gallouet2016lagrangian} showed that the first derivative of \(d^2_\Sb(\cdot)\) only exists almost everywhere. Instead, we use a black-box type of algorithm that is derivative-free. Plotting the function \(h(\lambda^n)\) for various timesteps, we see that the behaviour of \(h\) is actually quite pleasant and that we only have a maximum of two roots for \(h\) (instead of potentially an oscillating function with many roots) (see figure \ref{fig:h-lambda}). Thus, we can find a physical root for \(h\) quite easily. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method. 
 
-Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired if we increased the tolerance of the constraint, i.e. set \(c := 2 \; d^2_\Sb (m^0)\) (see Section 4: Results). The reason being that the system was being over-constrained, as the particles can actually get closer to incompressible than \(c\). In Algorithm 1, the \(b^n\) term can be noisy, and so we do not wish to nudge the particles in a noisy direction every timestep.
+Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired if we increased the tolerance of the constraint, i.e. set
+\begin{align}
+c := 2 \; d^2_\Sb (m^0)
+\end{align}
+(see Section 4: Results). The reason being that the system was being over-constrained, as the particles can actually get closer to incompressible than the constraint would allow. In Algorithm 1, the \(b^n\) term can be noisy, and so we do not wish to nudge the particles in a noisy direction every timestep.
 
-To solve this problem, we changed the constraint to an inequality constraint, so that we just desire that the particle positions lie within the the tolerance \(c\) from incompressible. Thus, our problem is
+This motivated us to present an different formulation, where the algorithm incorporates an inequality constrain instead of the equality constraint seen in Algorithm 1, so that we just desire that the particle positions lie within the the tolerance \(c\) from incompressible. Thus, our problem is
 \begin{align}
  &\begin{cases}
   \dot{m} = u \\
@@ -273,32 +279,50 @@ Algorithm 2:
 \end{flalign*}
 
 Pseudo-Code for Algorithm 2:
-\begin{flalign*}
-& \quad \text{Set } m^0, u^0, \text{ and define }b^0 = \nabla{d^{2}_{\Sb}(m^0)} && \\
-& \quad \text{FOR } n = 0,1,\dots \\
-& \quad \quad \text{IF } (m^n + \dt \; u^n < c) && \\
-& \quad \quad \quad \text{Set } m^{n+1} = m^n + \dt \; u^n \\
-& \quad \quad \quad \text{Set } u^{n+1} = u^n \\
-& \quad \quad \text{ELSE } \\
-& \quad \quad \quad \text{Solve, for } \lambda^n: h(\lambda^n) := d^{2}_{\Sb}(m^n + \dt + u^n - \frac{\dt}{2} \lambda^n b^n) - c = 0 \\
-& \quad \quad \quad \text{Set } u^{n+1/2} = u^n - \frac{\dt}{2} \lambda^n b^n \\
-& \quad \quad \quad \text{Set } m^{n+1} = m^{n} + \dt \; u^{n+1/2} \\
-& \quad \quad \quad \text{Set } b^{n+1} = \nabla{d^{2}_{\Sb}(m^{n+1})} \\
-& \quad \quad \quad \text{Set } \hat{\lambda}^{n+1} = \frac{2 \; u^{n+1} \cdot b^{n+1}}{\dt \; || b^{n+1} || ^2} \\
-& \quad \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1}
-\end{flalign*}
+\begin{flalign}
+& \quad \text{Set } m^0, u^0, \text{ and define }b^0 = \nabla{d^{2}_{\Sb}(m^0)} && \nonumber \\
+& \quad \text{FOR } n = 0,1,\dots \nonumber \\
+& \quad \quad \text{IF } (m^n + \dt \; u^n < c) && \nonumber \\
+& \quad \quad \quad \text{Set } m^{n+1} = m^n + \dt \; u^n \nonumber \\
+& \quad \quad \quad \text{Set } u^{n+1} = u^n \nonumber \\
+& \quad \quad \text{ELSE } \nonumber \\
+& \quad \quad \quad \text{Define } h(\lambda) := d^{2}_{\Sb}(m^n + \dt \; u^n - \frac{\dt}{2} \lambda b^n) - c \\
+& \quad \quad \quad \text{Solve, for } \lambda^n: h(\lambda^n) = 0 \nonumber \\
+& \quad \quad \quad \text{Set } u^{n+1/2} = u^n - \frac{\dt}{2} \lambda^n b^n \nonumber \\
+& \quad \quad \quad \text{Set } m^{n+1} = m^{n} + \dt \; u^{n+1/2} \nonumber \\
+& \quad \quad \quad \text{Set } b^{n+1} = \nabla{d^{2}_{\Sb}(m^{n+1})} \nonumber \\
+& \quad \quad \quad \text{Set } \hat{\lambda}^{n+1} = \frac{2 \; u^{n+1} \cdot b^{n+1}}{\dt \; || b^{n+1} || ^2} \nonumber \\
+& \quad \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1} \nonumber
+\end{flalign}
 
 
 \section{Results}
 
+\begin{figure}[H]
+   \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+	\includegraphics[scale=0.3]{rattle-test/hvals000}
+        \caption{} \label{fig:h-lambda-000}
+    \end{subfigure}
+    \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+	\includegraphics[scale=0.3]{rattle-test/hvals009}
+        \caption{} \label{fig:h-lambda-009}
+    \end{subfigure}
+\centering
+\caption{Plots of h(\(\lambda\)) as given in equation (31) for \(\lambda\) values \(-5000,-4900,\dots,5000\) at two timesteps of our new method (Algorithm 2), when applied to the Beltrami flow example. (a) After 0 timesteps. (b) After 10 timesteps.}
+\centering
+\label{fig:h-lambda}
+\end{figure}
+
 In this section we present numerically calculated convergence results of our method detailed in Algorithm 2, with the computer code written in Python based on the psuedo-code for Algorithm 2 detailed in Section 3, utilising the code-library of \cite{gallouet2016lagrangian} \citep{merigotpymongeampere}. We also present comparisons with the code of \cite{gallouet2016lagrangian}, as well as displaying some results of our method when applied to a more complex example.
 
-We first look at the relationship between the initial distance from incompressible (c value) and the number of particles used for the initialisation of the model (N value). Figure \ref{fig:c-N} shows that \(c \propto 1/N\) i.e. an inversely proportional relationship. This indicates that as we increase the number of particles used for our run, the error from being incompressible upon setup decreases linearly.
+We first look at the relationship between the initial distance from incompressible (c value) and the number of particles used for the initialisation of the model (N value). Recall that the initial configuration of particles \(m^0\) is found using a version of Lloyd's algorithm \citep{merigot2017algorithm}, an iterative algorithm that initially randomly chooses a configuration of the particles in the domain, calculates the Laguerre cells for each particle so that (12) is satisfied, and "moves" the particles to that each is set as the centroid of its respective cell, before the process is repeated. We then set \(c = d^{2}_{\mathbb{S}}(m^{0})\) as described in equation (26), so that \(c\) is the squared distance that the initial configuration was from being incompressible. Figure \ref{fig:c-N} shows that \(c \propto 1/N\) i.e. an inversely proportional relationship. This indicates that as we increase the number of particles used for our run, the error from being incompressible upon setup decreases linearly.
 
 \begin{figure}[H]
 \includegraphics[scale=0.5]{rattle-test/c-N}
 \centering
-\caption{A plot of initial distances from incompressible (c values) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 50 N values from 500 to 25000 in intervals of 500. Also plotted is a line of slope -1 on the log-log scale [blue line].}
+\caption{A plot of initial distances from incompressible (c values) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 50 N values from 500 to 25000 in intervals of 500. Also plotted is a line of slope -1 on the log-log scale [blue line]. Recall that the initial configuration of particles \(m^0\) is found using a version of Lloyd's algorithm \citep{merigot2017algorithm}, and c is set as the squared distance that the initial configuration was from being incompressible. }
 \centering
 \label{fig:c-N}
 \end{figure}
@@ -321,10 +345,65 @@ where \(m^{n_T}_{(p)}, u^{n_T}_{(p)}\) are the position and corresponding veloci
 \label{fig:error-N}
 \end{figure}
 
-We also look at comparing the results of our model with that of \cite{gallouet2016lagrangian} when running the Beltrami flow over a time period of 1s, using \(N = 1000\) particles and a step size of \(\dt = 0.004s\). Figure \ref{fig:beltrami-flow} shows a visualisation of the flow using three snapshots of the simulation when using each algorithm. We can see that the results compare well. Further, we also see that in figure \ref{fig:beltrami-flow-energies} that the calculated energy of the system at each timestep stays relatively constant, showing no real oscillations or dissipation. This is compared to figures \ref{fig:beltrami-flow-energies-q} and \ref{fig:beltrami-flow-energies-q-ke}, where we see a significant oscillation of the total energy of the system when using the method described in \cite{gallouet2016lagrangian}. The energy at timestep \(n\) in figure \ref{fig:beltrami-flow-energies-q} is calculated as
+We next look at comparing the two methods outlined in Section 3 - Algorithm 1 with the equality constraint and Algorithm 2 with the inequality constraint. We run both on the Beltrami flow over a time period of 1s, using \(N = 1000\) particles and a step size of \(\dt = 0.004s\). Figure \ref{fig:beltrami-flow} shows a visualisation of the flow using three snapshots of the simulation when using each algorithm.  For the equality constrained method, we set the constraint value \(c\) according to equation (26) in figures \ref{fig:beltrami-flow-000-e1}, \ref{fig:beltrami-flow-125-e1} and \ref{fig:beltrami-flow-249-e1}, and equation (29) in figures \ref{fig:beltrami-flow-000-e2}, \ref{fig:beltrami-flow-125-e2} and \ref{fig:beltrami-flow-249-e2}. For the inequality constrained method (Algorithm 2) we keep the constraint value \(c\) as equation (26). We see that the equality constraint performs poorly when \(c\) is set as equation (29), resulting in an incorrect visualisation of the flow, while the other two visualisations compare well.
+
+\begin{figure}[H]
+     \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
+        \caption{} \label{fig:beltrami-flow-000-e1}
+    \end{subfigure}
+    \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/125}
+        \caption{} \label{fig:beltrami-flow-125-e1}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/249}
+        \caption{} \label{fig:beltrami-flow-249-e1}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=2/000}
+        \caption{} \label{fig:beltrami-flow-000-e2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=2/035}
+        \caption{} \label{fig:beltrami-flow-125-e2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=2/040}
+        \caption{} \label{fig:beltrami-flow-249-e2}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
+        \caption{} \label{fig:beltrami-flow-000-i}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/125}
+        \caption{} \label{fig:beltrami-flow-125-i}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/249}
+        \caption{} \label{fig:beltrami-flow-249-i}
+    \end{subfigure}
+\centering
+\caption{The equality constrained Algorithm 1 and inequality constrained Algorithm 2 running the Beltrami flow example over a time period of 1s. The number of particles used is \(N = 1000\), with a step size of \(\dt = 0.004s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions using the method of Algorithm 1, where \(c := d^2_\Sb (m^0)\). ((a) Initial positions, (b) after 125 timesteps, (c) after 249 timesteps). (d), (e), (f) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions using the method of Algorithm 1, where \(c := 2 \; d^2_\Sb (m^0)\). ((d) Initial positions, (e) after 125 timesteps, (f) after 249 timesteps). (g), (h), (i) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions using the method of Algorithm 2, where \(c := d^2_\Sb (m^0)\). ((g) Initial positions, (h) after 125 timesteps, (i) after 249 timesteps). Note the colours used are only to help distinguish the particles as they travel.}
+\centering
+\label{fig:beltrami-flow}
+\end{figure}
+
+We also look at comparing these results with that of \cite{gallouet2016lagrangian} when running the same Beltrami flow (over a time period of 1s, using \(N = 1000\) particles and a step size of \(\dt = 0.004s\)). Figure \ref{fig:beltrami-flow} shows a visualisation of the flow using three snapshots of the simulation when using each algorithm (the method of \cite{gallouet2016lagrangian}, and the inequality constrained Algorithm 2). We can see that the results compare well. Further, we also see that in figure \ref{fig:beltrami-flow-energies} that the calculated energy of the system at each timestep stays relatively constant, showing no real oscillations or dissipation. This is compared to figures \ref{fig:beltrami-flow-energies-q} and \ref{fig:beltrami-flow-energies-q-ke}, where we see a significant oscillation of the total energy of the system when using the method described in \cite{gallouet2016lagrangian}. The energy at timestep \(n\) in figure \ref{fig:beltrami-flow-energies-q} is calculated as
 \begin{align}
 E^n = \frac{1}{N} \sum_{p = 1}^{N} \frac{1}{2} || u^n_{(p)} ||^2 + \frac{1}{2 \epsilon^2} d^2_{\Sb}(m^n_{(p)}) 
 \end{align} 
+[I know that the final term is wrong here, but I am struggling to think of how to write it.]
 which is the Lagrangian approximation of the integral of the modified Hamiltonian given in equation (9) over the whole domain \(\Omega\). The energy at timestep \(n\) in figure \ref{fig:beltrami-flow-energies-q-ke} is simply just the kinetic energy of the system, i.e.
 \begin{align}
 E^n = \frac{1}{N} \sum_{p = 1}^{N} \frac{1}{2} || u^n_{(p)} ||^2
@@ -443,11 +522,6 @@ Figures \ref{fig:vortices-000}, \ref{fig:vortices-1000} and \ref{fig:vortices-19
 \centering
 \label{fig:vortices}
 \end{figure}
-
-[
-0) plots of h(lambda)
-0.5) plots and quiver of equality constrained beltrami
-]
 
 
 \section{Summary and Outlook}
