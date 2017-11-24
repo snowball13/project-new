@@ -77,7 +77,7 @@ d^2(m_1, m_2) := \int_\Omega || m_1(a) - m_2(a) ||^2 \: \mathrm{d}^2 a, \quad m_
 
 We can extend this to define a notion of distance for any map in \(\M\) to the set of measure preserving maps of \(\M\). Denoting \(\Sb\) as this set, i.e. 
 \begin{align}
-\Sb &= \{ \: s \in \M \quad | \quad s_{\#}\Leb(A) := \Leb(s^{-1}(A)) = \Leb(A) \quad \forall A \subset \Omega \},
+\Sb &= \Big\{ \: s \in \M \quad | \quad s_{\#}\Leb(A) := \Leb(s^{-1}(A)) = \Leb(A) \quad \forall A \subset \Omega \Big\},
 \end{align}
 (so \(\Sb \subset \M\)) where \(\Leb\) is the Lebesque measure on \(\Omega\), we can define the (squared) distance from a map in \(\M\) to the set \(\Sb\) by \(d^2_\Sb \: : \: \M \to \R\) where
 \begin{align}
@@ -92,7 +92,7 @@ It follows then then that for a configuration \(m\), \(\dsmsq = 0\) is equivalen
 \end{align}
 Then we define \(\MN\) to be the space of functions from \(\Omega\) to \(\R^n\) which are constant on each of the subdomains \(\omega_i\) of \(P_N\), i.e.
 \begin{align}
-\MN &= \{ \phi \: : \: \Omega \to \R^n \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N\}.
+\MN &= \Big\{ \phi \: : \: \Omega \to \R^n \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N \Big\}.
 \end{align}
 Note that of course our notion of distance for any map in \(\MN\) to \(\Sb\) still holds. Discretising in this way, i.e. representing functions as piecewise constant maps, allows us to store computationally a map as merely as set of points (the value of the map on each subdomain \(\omega_i\)).
 
@@ -111,7 +111,7 @@ Conserving the Hamiltonian keeps the system close to incompressible when \(\epsi
 
 From \cite{gallouet2016lagrangian}, a calculatable formula for \(\graddsmsq\) exists. First, we introduce the definition of a Laguerre diagram and briefly explain the projections used as part the formula. Let \(M = (M_1,\dots,M_N), \text{ where } M_i \in \R^n, \psi = (\psi_1,\dots,\psi_N), \text{ where } \psi_i \in \R\). The Laguerre diagram is a decomposition of \(\R^2\) into \(N\) convex polyhedra (Laguerre cells) defined by
 \begin{align}
-\mathrm{Lag}_i(M, \psi) &:= \{x \in \R^n \quad | \quad || x - M_i ||^2 + \psi_i \le || x - M_j ||^2 + \psi_j, \quad \forall j = 1,\dots,N\}
+\mathrm{Lag}_i(M, \psi) &:= \Big\{ x \in \R^n \quad | \quad || x - M_i ||^2 + \psi_i \le || x - M_j ||^2 + \psi_j, \quad \forall j = 1,\dots,N \Big\}
 \end{align}
 
 Since \(\Sb\) is closed but not convex, the orthogonal projection of a map in \(\Sb\) exists, but is not uniquely defined. Thus it is simply given as any map that is a projection. In other words, a projection of \(m \in \M\), \(P_\Sb(m)\), is any point satisfying
@@ -127,7 +127,7 @@ Proposition 1: Let \(m \in \MN\) and define \(M_i := m(\omega_i) \in \R^n \text{
 and
 \begin{align}
 \dsmsq & = \sum_{i=1}^N \: \int_{L_i} || x - M_i ||^2 \: \mathrm{d}x, \\
-\graddsmsq &= 2(m - P_{\MN} \circ P_{\mathbb{S}}(m)),
+\graddsmsq &= 2 \big( m - P_{\MN} \circ P_{\mathbb{S}}(m) \big),
 \end{align}
 where
 \begin{align}
@@ -179,7 +179,7 @@ H_c(p, q) = H(p, q) + \lambda f(q)
 which leads to the system
 \begin{align}
 \dot{q} &= \frac{\partial H_c}{\partial p} = \frac{\partial H}{\partial p} \\
-\dot{p} &= - \frac{\partial H_c}{\partial q} = - (\frac{\partial H}{\partial q} + \lambda \frac{\partial f}{\partial q})\\
+\dot{p} &= - \frac{\partial H_c}{\partial q} = - \Big( \frac{\partial H}{\partial q} + \lambda \frac{\partial f}{\partial q} \Big) \\
 0 &= \frac{\partial H_c}{\partial \lambda} = f(q)
 \end{align}
 For a constrained system, the constraint \(f\) must also be infinitely differentiable for the modified (and constrained) Hamiltonian to be exist. This is not the case for our constrained system, meaning that although our method is symplectic, it is not conserving of the modified Hamiltonian.
@@ -330,11 +330,11 @@ We first look at the relationship between the initial distance from incompressib
 
 To test our method further, we use two examples. First, we have a simple Beltrami flow in a unit square, with each particle being initialised with a position \(m^0\) and velocity \(u^0 = U(m^0)\) where
 \begin{align}
-U(m) = (-\cos(m_0 \pi) \sin(m_1 \pi), \: \sin(m_0 \pi) \cos(m_1 \pi))
+U(m) = \big( -\cos(m_0 \pi) \sin(m_1 \pi), \: \: \sin(m_0 \pi) \cos(m_1 \pi) \big)
 \end{align}
 where \(m_0, \: m_1\) are the horizontal and vertical components of the position \(m\) respectively. Note the Eulerian solution is time independent. In figure \ref{fig:error-N} we see that \(\text{e}_{rr} \propto 1/N^{2.86}\), where \(\text{e}_{rr}\) is the \(L^2\mathrm{-error}\) over all particles,
 \begin{align}
-\text{e}_{rr} = (\frac{1}{N} \sum_{p = 1}^{N} || u^{n_T}_{(p)} - U(m^{n_T}_{(p)}) ||^2)^\frac{1}{2}
+\text{e}_{rr} = \Big( \frac{1}{N} \sum_{p = 1}^{N} || u^{n_T}_{(p)} - U(m^{n_T}_{(p)}) ||^2 \Big) ^\frac{1}{2}
 \end{align}
 where \(m^{n_T}_{(p)}, u^{n_T}_{(p)}\) are the position and corresponding velocity of the particle \(p\) after \(n_T\) timesteps. The relationship seen in figure \ref{fig:error-N} indicates that the error decreases as we increase the number of particles used in the run. For figure \ref{fig:error-N}, we used 120 timesteps and an end time of 0.5s (and so a step size of \(\dt = 0.004167\)) for each run. 
 
@@ -476,7 +476,7 @@ H(m, u) = \frac{1}{2} || u ||^2.
 Our second example, still in the unit square, has \(n_V\) vortices placed in the domain with centres at positions \(C_i\) and weights \(w_i, \: i = 1,\dots,n_V\). Each particle is initialised with a position \(m^0\) and a and velocity \(u^0 = U(m^0)\) where
 \begin{align}
 U(m) &= \nabla^\perp \phi(m), \\
-\phi(m) &= \sum_{i=1}^{n_v} w_i \: \exp(\frac{|| m - C_i ||^2}{2 \sigma^2})
+\phi(m) &= \sum_{i=1}^{n_v} w_i \: \exp \Big( \frac{|| m - C_i ||^2}{2 \sigma^2} \Big)
 \end{align}
 where \(\sigma\) is the standard deviation of the vortex strength from the centre.
 
