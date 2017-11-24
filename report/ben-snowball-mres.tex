@@ -135,9 +135,17 @@ P_{\MN} \circ P_{\mathbb{S}}(m) &= \sum^N_{i=1} B_i \mathbbm{1}_{L_i}(m), \\
 B_i &:= \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N. 
 \end{align}
 
-We note that the finding the \(\psi\)'s that satisfy equation (12) is done using an efficient iterative method (a damped Newton algorithm) \citep{merigot2017algorithm}. Equations (13, 14) above are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. 
+We note that finding the \(\psi\)'s that satisfy equation (12) is equivalent to solving a linear program, that can be solved using the simplex algorithm that is \(\mathcal{O}(N^3\log N)\). \cite{gallouet2016lagrangian} instead used a damped Newton algorithm \citep{merigot2017algorithm}, an efficient iterative method that we also implement and hope will be much faster. This algorithm, together with equations (13, 14) above, are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. 
 
-\cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise in time. A symplectic map is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
+\cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise (7, 8) in time. For intial conditions \((m^0, u^0) \in \MN \times \MN \), the algorithm is as follows:
+\begin{flalign*}
+ & \quad
+ \begin{cases}
+  u^{n+1} = u^n - \dt \; \frac{\nabla d^2_\Sb(m^n)}{2\epsilon^2} \\
+  m^{n+1} = m^n + \dt \; u^{n+1}
+ \end{cases}&& 
+\end{flalign*}
+where \(\graddsmsq\) is given by (14). We note a symplectic map is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
 
 Computationally, problems arose with extending this method to geophysical fluids problems due to the difficulty in tuning the \(\epsilon\) parameter. We thus wanted our method to get rid of the need for the tuning of the parameter \(\epsilon\), that, as well as being difficult to tune, was being used to represent small oscillations that may interact with the internal waves of the Eady model, taking the flow out of hydrostatic balance. The subsequent idea was to answer the question "how do we remove the need for \(\epsilon\) and get rid of compressibility?".
 
@@ -168,21 +176,21 @@ The RATTLE algorithm is then:
 \end{flalign*}
 where the superscript \(n\) refers to the current timestep, and \(\dt\) is the time step size.
 
-Hamiltonian systems of differential equations like (7, 8) have a flow that preserves a symplectic structure. Importantly, it has been established that symplectic methods have better long-term stability properties than non-symplectic methods \citep{okunbor1992explicit}. In \cite{ruth1983canonical} it was noted that the Verlet method is symplectic, and \cite{leimkuhler1994symplectic} confirms that RATTLE is also symplectic. 
-
-For a symplectic timestepping method, there exists a modified Hamiltonian \(H'(p, q) = H(p, q) + \dt^k \Delta H(p, q, \dt)\) if \(H\) is infinitely differentiable, such that solutions of the modified Hamiltonian system corresponding to \(H'\) pass exactly through the points gained at each timestep of the method, i.e. it conserves the modified Hamiltonian \(H'\).
-
-For a constrained system with a holonomic constraint \(f(q)\) and modified Hamiltonian \(H(p, q)\) the constrained Hamiltonian is
+For a symplectic timestepping method, there exists a modified Hamiltonian \(H'(p, q) = H(p, q) + \dt^k \Delta H(p, q, \dt)\) if \(H\) is infinitely differentiable, such that solutions of the modified Hamiltonian system corresponding to \(H'\) pass exactly through the points gained at each timestep of the method, i.e. it conserves the modified Hamiltonian \(H'\). For a constrained system with a holonomic constraint \(g(q)\) and modified Hamiltonian \(H(p, q)\) the constrained Hamiltonian is
 \begin{align}
-H_c(p, q) = H(p, q) + \lambda f(q)
+H_c(p, q) = H(p, q) + \lambda g(q)
 \end{align}
 which leads to the system
 \begin{align}
 \dot{q} &= \frac{\partial H_c}{\partial p} = \frac{\partial H}{\partial p} \\
-\dot{p} &= - \frac{\partial H_c}{\partial q} = - \Big( \frac{\partial H}{\partial q} + \lambda \frac{\partial f}{\partial q} \Big) \\
-0 &= \frac{\partial H_c}{\partial \lambda} = f(q)
+\dot{p} &= - \frac{\partial H_c}{\partial q} = - \Big( \frac{\partial H}{\partial q} + \lambda \frac{\partial g}{\partial q} \Big) \\
+0 &= \frac{\partial H_c}{\partial \lambda} = g(q)
 \end{align}
-For a constrained system, the constraint \(f\) must also be infinitely differentiable for the modified (and constrained) Hamiltonian to be exist. This is not the case for our constrained system, meaning that although our method is symplectic, it is not conserving of the modified Hamiltonian.
+As we can see, (21-23) is another way of writing (17-19) for \(H(p, q) = \frac{p^2}{2} + V(q)\).
+
+Hamiltonian systems of differential equations like (7, 8) have a flow that preserves a symplectic structure. Importantly, it has been established that symplectic methods have better long-term stability properties than non-symplectic methods \citep{okunbor1992explicit}. In \cite{ruth1983canonical} it was noted that the Verlet method is symplectic, and \cite{leimkuhler1994symplectic} confirms that RATTLE is also symplectic. 
+
+For a constrained system, the constraint \(g\) must also be infinitely differentiable for the modified (and constrained) Hamiltonian to be exist. This is not the case for our constrained system, meaning that although our method is symplectic, it is not conserving of the modified Hamiltonian.
 
 
 \section{Method}
@@ -198,7 +206,7 @@ In this section we introduce our timestepping method that combines aspects of th
 \end{align}
 Referring to equations (17-19), we are just setting \(V(\cdot) \equiv 0\) and \(g(\cdot) = d^2_{\Sb}(\cdot)\).
 
-Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. To address this, we choose an initial configuration of particles \(m^0\) using a version of Lloyd's algorithm \citep{merigot2017algorithm}. This is an iterative algorithm that initially randomly chooses a configuration of the particles in the domain. The process then calculates the Laguerre cells for each particle so that (12) is satisfied, and "moves" the particles to that each is set as the centroid of its respective cell, before the process is repeated. We then set
+Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. To address this, we choose an initial configuration of particles \(m^0\) using a version of Lloyd's algorithm \citep{merigot2017algorithm}. This is an iterative algorithm that initially randomly chooses a configuration of the particles in the domain. The process then calculates the Laguerre cells for each particle so that (12) is satisfied, and "moves" the particles so that each is set as the centroid of its respective cell, before the process is repeated. If Loyd's algorithm converges, then one has found configuration \(m\) such that \(m - P_{\MN} \circ P_{\mathbb{S}}(m) = 0\), meaning that one has found a local minimum for \(\graddsmsq = 2 \big( m - P_{\MN} \circ P_{\mathbb{S}}(m) \big) \). We then set
 \begin{align}
 c &:= d^{2}_{\mathbb{S}}(m^{0})
 \end{align}
