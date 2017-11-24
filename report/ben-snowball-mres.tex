@@ -72,7 +72,7 @@ We aim to build a method with a Lagrangian approach for solving the Eady model. 
 
 Consider two maps \(m_1, m_2 \: : \: \Omega \to \Omega\) for some domain \(\Omega \subset \R^n, \: n \in \N\). We can define a distance between these two maps simply by using the \(L^2\)-norm, i.e. letting \(\M := L^2(\Omega)\), 
 \begin{align}
-d^2(m_1, m_2) := \int_\Omega || m_1(a) - m_2(a) || \: \mathrm{d}^2 a, \quad m_1, m_2 \in \M.
+d^2(m_1, m_2) := \int_\Omega || m_1(a) - m_2(a) ||^2 \: \mathrm{d}^2 a, \quad m_1, m_2 \in \M.
 \end{align}
 
 We can extend this to define a notion of distance for any map in \(\M\) to the set of measure preserving maps of \(\M\). Denoting \(\Sb\) as this set, i.e. 
@@ -95,6 +95,8 @@ Then we define \(\MN\) to be the space of functions from \(\Omega\) to \(\R^n\) 
 \MN &= \{ \phi \: : \: \Omega \to \R^n \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N\}.
 \end{align}
 Note that of course our notion of distance for any map in \(\MN\) to \(\Sb\) still holds. Discretising in this way, i.e. representing functions as piecewise constant maps, allows us to store computationally a map as merely as set of points (the value of the map on each subdomain \(\omega_i\)).
+
+For clarity, in this report, we refer to \(m \in \MN\)  as being a collection of particles, where each particle \(i=1,\dots,N\) has its own subdomain \(\omega_i\), and simply holds the values of \(m(\omega_i)\) and \(u(\omega_i)\) for its position and velocity respectively.
 
 The Hamiltonian approach for solving the problem is then: choose a set of variables \((m, u) \in \MN \times \MN \) that satisfy Hamilton's equations
 \begin{align} 
@@ -133,8 +135,7 @@ P_{\MN} \circ P_{\mathbb{S}}(m) &= \sum^N_{i=1} B_i \mathbbm{1}_{L_i}(m), \\
 B_i &:= \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N. 
 \end{align}
 
-We note that the finding the \(\psi\)'s that satisfy equation (12) is done using an efficient iterative method (a damped Newton algorithm) \citep{merigot2017algorithm}. Equations (13, 14) above are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}.  For clarity, in this report, we refer to \(m\) being a collection of particles, where each particle \(i=1,\dots,N\) has its own subdomain \(\omega_i\), and simply holds the values of \(m(\omega_i)\) and \(u(\omega_i)\) for its position and velocity respectively.
-[Is this a good way of explaining this? I realised that this concept was missing from my report].
+We note that the finding the \(\psi\)'s that satisfy equation (12) is done using an efficient iterative method (a damped Newton algorithm) \citep{merigot2017algorithm}. Equations (13, 14) above are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. 
 
 \cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise in time. A symplectic Hamiltonian is one that preserves phase space volume. (Consider a surface in the phase space made up of points of initial condition. At a time \(t\) each initial condition point will have been mapped to a new position in the phase space. If we consider all these new mappings to also make up a surface, then the flow was symplectic if the volume enclosed by the original surface is the same for that of the new surface. A timestepping method is symplectic if the volume is preserved at each timestep.)
 
@@ -401,7 +402,7 @@ We next look at comparing the two methods outlined in Section 3 - Algorithm 1 wi
 
 We also look at comparing these results with that of \cite{gallouet2016lagrangian} when running the same Beltrami flow (over a time period of 1s, using \(N = 1000\) particles and a step size of \(\dt = 0.004s\)). Figure \ref{fig:beltrami-flow} shows a visualisation of the flow using three snapshots of the simulation when using each algorithm (the method of \cite{gallouet2016lagrangian}, and the inequality constrained Algorithm 2). We can see that the results compare well. Further, we also see that in figure \ref{fig:beltrami-flow-energies} that the calculated energy of the system at each timestep stays relatively constant, showing no real oscillations or dissipation. This is compared to figures \ref{fig:beltrami-flow-energies-q} and \ref{fig:beltrami-flow-energies-q-ke}, where we see a significant oscillation of the total energy of the system when using the method described in \cite{gallouet2016lagrangian}. The energy at timestep \(n\) in figure \ref{fig:beltrami-flow-energies-q} is calculated as
 \begin{align}
-E^n = \frac{1}{N} \sum_{p = 1}^{N} \frac{1}{2} || u^n_{(p)} ||^2 + \frac{1}{2 \epsilon^2} d^2_{\Sb}(m^n_{(p)}) 
+E^n = \frac{1}{N} \Big( \sum_{p = 1}^{N} \frac{1}{2} || u^n_{(p)} ||^2 + \frac{1}{2 \epsilon^2} d^2_{\Sb}(m^n) \Big) 
 \end{align} 
 [I know that the final term is wrong here, but I am struggling to think of how to write it.]
 which is the Lagrangian approximation of the integral of the modified Hamiltonian given in equation (9) over the whole domain \(\Omega\). The energy at timestep \(n\) in figure \ref{fig:beltrami-flow-energies-q-ke} is simply just the kinetic energy of the system, i.e.
@@ -526,7 +527,7 @@ Figures \ref{fig:vortices-000}, \ref{fig:vortices-1000} and \ref{fig:vortices-19
 
 \section{Summary and Outlook}
 
-The motivation for this report was to look for a new Lagrangian method for solving fronts in weather forecasting. In this report we have looked at setting out a potential new timestepping method for the incompressible Euler equations that involves optimal transport and a constrained symplectic algorithm. We have discussed some background to the method, as well as establishing its convergence numerically using a couple of examples. Our method gets rid of the need for the tuning of the parameter \(\epsilon\) from the method proposed by \cite{gallouet2016lagrangian}, that we found was difficult to tune s well as being used to represent small oscillations that may interact with the internal waves of the Eady model, taking the flow out of hydrostatic balance. Our method also seems to compare favourable with that of \cite{gallouet2016lagrangian} for the simple flows. 
+The motivation for this report was to look for a new Lagrangian method for solving fronts in weather forecasting. In this report we have looked at setting out a potential new timestepping method for the incompressible Euler equations that involves optimal transport and a constrained symplectic algorithm. We have discussed some background to the method, as well as establishing its convergence numerically using a couple of examples. Our method gets rid of the need for the tuning of the parameter \(\epsilon\) from the method proposed by \cite{gallouet2016lagrangian}, that we found was difficult to tune as well as being used to represent small oscillations that may interact with the internal waves of the Eady model, taking the flow out of hydrostatic balance. Our method also seems to compare favourably with that of \cite{gallouet2016lagrangian} for the simple flows. 
 
 When looking at implementing on the Eady model problem itself, we encountered issues relating to the aspect ratio of the large domain (about 100x larger in the horizontal than the vertical). One solution to this latter problem could be to redefine the distance metric used in the Laguerre cells definition given, to "penalise" distance moved in the vertical direction by the appropriate amount (the ratio). Ultimately, we would look to gain a mathematical proof for convergence and stability of the method, and look to implement it for the full Eady model problem with periodic boundary conditions, and see how it compares to the Eulerian solution.
 
