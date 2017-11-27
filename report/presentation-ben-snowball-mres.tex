@@ -1,0 +1,469 @@
+\documentclass[10pt]{beamer}
+
+% \usepackage{beamerthemesplit} // Activate for custom appearance
+
+\usepackage[parfill]{parskip}    		% Activate to begin paragraphs with an empty line rather than an indent
+
+\usepackage{natbib}
+\usepackage{url}
+\bibliographystyle{elsarticle-harv}
+
+\usepackage{graphicx}				% Use pdf, png, jpg, or eps§ with pdflatex; use eps in DVI mode
+								% TeX will automatically convert eps --> pdf in pdflatex		
+\usepackage{caption}
+\usepackage{subcaption}
+% \captionsetup[figure]{font=scriptsize, labelfont=scriptsize}
+\usepackage{float}
+\graphicspath{ {../results/} }
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{bbm}
+
+\usetheme{Madrid}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\MN}{\mathbb{M}_N}
+\newcommand{\LN}{\mathbb{L}_N}
+\newcommand{\dsm}{d_\mathbb{S}(m)}
+\newcommand{\dsmsq}{d^{2}_{\mathbb{S}}(m)}
+\newcommand{\graddsmsq}{\nabla{d^{2}_{\mathbb{S}}(m)}}
+\newcommand{\eone}{\hat{e}_1}
+\newcommand{\etwo}{\hat{e}_2}
+\newcommand{\bt}{\tilde{b}}
+\newcommand{\pt}{\tilde{p}}
+\newcommand{\dt}{\Delta t}
+\newcommand{\M}{\mathbb{M}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Sb}{\mathbb{S}}
+\newcommand{\Ps}{\mathbb{P}_{\mathbb{S}}}
+\newcommand{\Pm}{\mathbb{P}_{\mathbb{M}_N}}
+\newcommand{\Leb}{\mathrm{Leb}}
+\newcommand{\DmDt}{\frac{\mathrm{D}m}{\mathrm{D}t}}
+\newcommand{\DuDt}{\frac{\mathrm{D}u}{\mathrm{D}t}}
+
+
+
+
+\title{Lagrangian Particle Methods for Incompressible Flows}
+\author{Ben Snowball}
+\date{\today}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\section[Outline]{}
+\frame{\tableofcontents}
+\section{Introduction}
+\section{Background}
+\subsection{Optimal Transport Approach}
+\section{Method}
+\subsection{Constrained Methods}
+\subsection{Symplectic RATTLE Algorithm}
+\subsection{Our Modified Algorithm}
+\section{Results}
+\subsection{Beltrami Flow in a Square}
+\subsection{Interacting Vortices in a Square}
+\section{Summary and Outlook}
+
+
+\frame
+{
+  \frametitle{Introduction}
+
+  \begin{itemize}
+  \item \cite{hoskins1971atmospheric}: introduced the the semi-geostrophic (SG) equations.
+  
+  \item \cite{shutts1987parcel}: optimal transport interpretation of the SG equations.
+
+  \item \cite{visram2014framework}: compared SG numerics with standard numerics - found standard Boussinesq solution does not go to the SG solution as Ro \(\to 0\). 
+  
+  \item Hypothesised this is due to numerical dissipation. 
+  
+  \end{itemize}
+  
+\begin{block}{Main Contribution of this Project}
+ The construction of a Lagrangian algorithm using the work of \cite{gallouet2016lagrangian} that avoids issues with artificial compressibility.
+\end{block}
+
+}
+
+\frame
+{
+  \frametitle{Introduction}
+
+\begin{figure}[H]
+   \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{images/Figure4a-day2}
+        \caption{} \label{fig:colin1}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+	\includegraphics[scale=0.15]{images/Figure4a-day11}
+        \caption{} \label{fig:vortices-1000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+	\includegraphics[scale=0.2]{images/Figure5}
+        \caption{} \label{fig:vortices-1900}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.4\textwidth}
+        \centering
+        \includegraphics[scale=0.2]{images/Figure7b}
+        \caption{} \label{fig:vortices-quiver0}
+    \end{subfigure}
+\centering
+\caption{\cite{visram2014framework}}
+\centering
+\label{fig:colin}
+\end{figure}
+}
+
+\frame
+{
+  \frametitle{Optimal Transport Approach}
+  
+\begin{block}{}
+The Euler equations describe fluid particle motion under an incompressibility constraint.
+\end{block} 
+
+Consider some domain \(\Omega \subset \R^n\). Define:
+
+\begin{itemize}
+
+\item \(\M := L^2(\Omega)\)
+
+\item \(d^2(m_1, m_2) := \int_\Omega || m_1(a) - m_2(a) ||^2 \: \mathrm{d}^2 a, \quad m_1, m_2 \in \M.\)
+
+\item \(\Sb := \Big\{ \: s \in \M \quad | \quad s_{\#}\Leb(A) := \Leb(s^{-1}(A)) = \Leb(A) \quad \forall A \subset \Omega \Big\}\)
+
+\item \(\dsmsq := \min_{s \in \mathbb{S}} d^2(m, s), \quad m \in \M\)
+
+\end{itemize}
+
+\begin{block}{}
+It follows \(\dsmsq = 0\) is equivalent to the configuration \(m \in \M\) being incompressible.
+\end{block}
+
+}
+
+\frame
+{
+  \frametitle{Discretising our Function Space}
+  
+[Include picture]  
+
+We can discretise \(\M\) into piecewise constant functions, constant on each subdomain \(\omega_i\) of a partition of \(\Omega\)
+\[ 
+\MN := \Big\{ \phi \: : \: \Omega \to \R^n \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N \Big\}
+\]
+
+}
+
+\frame
+{
+  \frametitle{Hamiltonian}
+
+The Hamiltonian approach for solving the problem is then: choose a set of variables \((m, u) \in \MN \times \MN \) that satisfy Hamilton's equations
+\begin{align} 
+\dot{m} &= u, \\
+\dot{u} &= - \nabla p
+\end{align}
+where \(\nabla p = \frac{\graddsmsq}{2\epsilon^2}\). Here, \(\epsilon\) is the spring parameter. This is the system of equations corresponding to conserving the Hamiltonian
+\begin{align} 
+H(m, u) &= \frac{1}{2} ||u||^2_{L^2} + \frac{\dsmsq}{2\epsilon^2}.
+\end{align}
+}
+
+\frame
+{
+  \frametitle{Timestepping and Artificial Compressibility}
+  
+Symplectic Euler timestepping method:
+\begin{flalign*}
+ & \quad
+ \begin{cases}
+  u^{n+1} = u^n - \dt \; \frac{\nabla d^2_\Sb(m^n)}{2\epsilon^2} \\
+  m^{n+1} = m^n + \dt \; u^{n+1}
+ \end{cases}&& 
+\end{flalign*}
+
+\begin{itemize}
+\item The term \(\frac{\dsmsq}{2\epsilon^2}\) is used to add in a form of pseudo-compressibility to the system.
+\item \(N \to \infty, \: \epsilon \to 0 \: \implies \) incompressible.
+\item The parameter \(\epsilon\) is hard to tune.
+\end{itemize}
+}
+
+\frame
+{
+  \frametitle{Laguerre Cells and Orthogonal Projections}
+
+From \cite{gallouet2016lagrangian}, calculatable formulae for \(\dsmsq \text{ and } \graddsmsq\) exist. 
+
+\begin{itemize}
+\item Laguerre Cells: Let \(M = (M_1,\dots,M_N),\) where \(M_i \in \R^n, \psi = (\psi_1,\dots,\psi_N),\) \(\psi_i \in \R\)
+\end{itemize}
+\[
+\mathrm{Lag}_i(M, \psi) := \Big\{ x \in \R^n \quad | \quad || x - M_i ||^2 + \psi_i \le || x - M_j ||^2 + \psi_j, \quad \forall j = 1,\dots,N \Big\}
+\]
+
+\begin{figure}[H]
+\includegraphics[scale=0.2]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
+\centering
+\label{fig:laguerre}
+\end{figure}
+
+\begin{itemize}
+\item Orthogonal projections: A projection of \(m \in \MN\) on to \(\Sb\), \(P_\Sb(m)\), is any point satisfying \( || P_\Sb(m) - m ||^2 = \dsmsq\). Denote the orthogonal projection mapping on \(\MN\) by \(P_{\MN}\).
+\end{itemize}
+}
+
+\frame
+{
+  \frametitle{Formulae for \(d^2_\Sb\), \(\nabla d^2_\Sb\)}
+
+\begin{block}{Proposition 1}
+Let \(m \in \MN\) and define \(M_i := m(\omega_i) \in \R^n \text{ for } i = 1,\dots,N\) with \(M = (M_1,\dots,M_N)\). Then there exists \(\psi = (\psi_1,\dots,\psi_N), \psi \in \R\), unique up to additive constant such that, with \(L_i := \mathrm{Lag}_i(M, \psi)\), 
+\begin{align}
+\Leb(L_i) &= \frac{1}{N}\Leb(\Omega),
+\end{align}
+and
+\begin{align}
+\dsmsq & = \sum_{i=1}^N \: \int_{L_i} || x - M_i ||^2 \: \mathrm{d}x, \\
+\graddsmsq &= 2 \big( m - P_{\MN} \circ P_{\mathbb{S}}(m) \big),
+\end{align}
+where
+\begin{align*}
+P_{\MN} \circ P_{\mathbb{S}}(m) = \sum^N_{i=1} B_i \mathbbm{1}_{L_i}(m), \quad B_i := \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N. 
+\end{align*}
+\end{block}
+}
+
+\frame
+{
+  \frametitle{Constrained Methods}
+
+\begin{block}{Goal}
+Find a timestepping method where we replace pseudo-compressibility by incompressibility constraint.
+\end{block}
+\begin{align*}
+& \dot{m}(a, t) = u(a,t), \quad \text{contraint}: \: \dsmsq = 0 \\
+\iff
+ &\begin{cases}
+  \dot{m} = u \\
+  \dot{u} = \lambda \graddsmsq, \quad \lambda = \lambda(t) \text{ a Lagrange multiplier enforcing } \dsmsq = 0.
+ \end{cases} 
+\end{align*}
+Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. Thus, 
+\begin{align}
+ &\begin{cases}
+  \dot{m} = u \\
+  \dot{u} = \lambda \graddsmsq, \quad \lambda = \lambda(t) \text{ a Lagrange multiplier enforcing } \dsmsq \le c.
+ \end{cases} 
+\end{align}
+}
+
+\frame
+{
+  \frametitle{RATTLE Algorithm}
+
+  \begin{itemize}
+  
+  \item Hamiltonian systems like (1, 2) have a flow that preserves a symplectic structure.
+
+  \item Symplectic methods have better long-term stability properties than non-symplectic methods \citep{okunbor1992explicit}.
+  
+  \item Can long term numerical properties of symplectic methods be extended to fluids problems?
+
+  \item \cite{leimkuhler1994symplectic} describes the (symplectic) RATTLE algorithm, that incorporates a holonomic constraint on the system - we use to be part of our timestepping method.
+
+  \end{itemize}
+}
+
+\frame
+{
+  \frametitle{Our Modified RATTLE Algorithm}
+
+\begin{flalign*}
+ & \quad \text{IF } (m^n + \dt \; u^n < c) && \\
+ & \quad \quad \text{set } m^{n+1} = m^n + \dt \; u^n, \: \: u^{n+1} = u^n \\
+ & \quad \text{ELSE } \\
+ & \quad \quad \begin{cases}
+  m^{n+1} = m^{n} + \dt \; u^{n+1/2}  \\
+  u^{n+1/2} = u^n - \frac{\dt}{2} \lambda^n \nabla{d^{2}_{\Sb}(m^n)} \\
+  \nabla{d^{2}_{\Sb}(m^{n+1})} - c = 0
+ \end{cases} \\
+ & \quad \quad \text{and, } \\
+ & \quad \quad \begin{cases}
+  u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} \nabla{d^{2}_{\Sb}(m^{n+1})} \\
+  u^{n+1} \cdot \nabla{d^{2}_{\Sb}(m^{n+1})} = 0.
+ \end{cases} 
+\end{flalign*}
+
+\begin{itemize}
+
+\item \(\text{Define } h(\lambda) := d^{2}_{\Sb}(m^n + \dt \; u^n - \frac{\dt}{2} \lambda \nabla d^{2}_{\Sb}(m^n)) - c \text{ and solve } h(\lambda^n) = 0 \text{ for } \lambda^n.\)
+
+\item \(\text{Set } \hat{\lambda}^{n+1} = \frac{2 \; u^{n+1} \cdot \nabla d^{2}_{\Sb}(m^{n+1})}{\dt \; || \nabla d^{2}_{\Sb}(m^{n+1}) || ^2} \)
+
+\end{itemize}
+
+}
+
+\frame
+{
+  \frametitle{Results: Choosing '\(c\)'}
+
+\begin{figure}[H]
+\includegraphics[scale=0.3]{rattle-test/c-N}
+\centering
+\caption{A plot of initial distances from incompressible (c values) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses]. Here we have used 50 N values from 500 to 25000 in intervals of 500. Also plotted is a line of slope -1 on the log-log scale [blue line]. Recall that the initial configuration of particles \(m^0\) is found using a version of Lloyd's algorithm \citep{merigot2017algorithm}, and c is set as the squared distance that the initial configuration was from being incompressible. }
+\centering
+\label{fig:c-N}
+\end{figure}
+
+}
+
+\frame
+{
+  \frametitle{Results: Beltrami Flow}
+
+\begin{figure}[H]
+     \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/000}
+        \caption{} \label{fig:beltrami-flow-000-q}
+    \end{subfigure}
+    \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/125}
+        \caption{} \label{fig:beltrami-flow-125-q}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.15]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/249}
+        \caption{} \label{fig:beltrami-flow-249-q}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
+        \caption{} \label{fig:beltrami-flow-000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/125}
+        \caption{} \label{fig:beltrami-flow-125}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.15]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/249}
+        \caption{} \label{fig:beltrami-flow-249}
+    \end{subfigure}
+\centering
+\caption{\(N = 1000, \: \dt = 0.004s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions using the method of \cite{gallouet2016lagrangian}. ((a) Initial positions, (b) after 125 timesteps, (c) after 249 timesteps). (d), (e), (f) Using our new method. Each particle is initialised with a position \(m^0\) and velocity \(u^0 = \big( -\cos(m^0_0 \pi) \sin(m^0_1 \pi), \: \: \sin(m^0_0 \pi) \cos(m^0_1 \pi) \big) \) where \(m_0, \: m_1\) are the horizontal and vertical components of the position \(m\) respectively.}
+\centering
+\label{fig:beltrami-flow}
+\end{figure}
+
+}
+
+\frame
+{
+  \frametitle{Results: \(N\)-error Relationship}
+
+\begin{figure}[H]
+\includegraphics[scale=0.3]{beltrami-square-rattle/error-N}
+\centering
+\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (\(\dt = 0.004167\)) against \(N\) on a log-log plot [black crosses], using our new method (Algorithm 2). Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line]. 
+We see that \(\text{e}_{rr} \propto 1/N^{2.86}\), where \(\text{e}_{rr}\) is the \(L^2\mathrm{-error}\) over all particles: \(\text{e}_{rr} = \Big( \frac{1}{N} \sum_{p = 1}^{N} || u^{n_T}_{(p)} - U(m^{n_T}_{(p)}) ||^2 \Big) ^\frac{1}{2}\), where \(m^{n_T}_{(p)}, u^{n_T}_{(p)}\) are the position and corresponding velocity of the particle \(p\) after \(n_T\) timesteps.}
+\centering
+\label{fig:error-N}
+\end{figure}
+
+}
+
+\frame
+{
+  \frametitle{Results: Vortices}
+
+\begin{figure}[H]
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{vortices/run1/000}
+        \caption{} \label{fig:vortices-000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.15]{vortices/run1/1000}
+        \caption{} \label{fig:vortices-1000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.15]{vortices/run1/1900}
+        \caption{} \label{fig:vortices-1900}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{vortices/run1/quiver0}
+        \caption{} \label{fig:vortices-quiver0}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{vortices/run1/quiver1000}
+        \caption{} \label{fig:vortices-quiver1000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.15]{vortices/run1/quiver1900}
+        \caption{} \label{fig:vortices-quiver1900}
+    \end{subfigure}
+\centering
+\caption{\(N = 2000\), \(\dt = 0.0005s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. ((a) Initial positions, (b) after 1000 timesteps, (c) after 1900 timesteps). (d), (e), (f) Same three snapshots of the velocities using quiver plots.}
+\centering
+\label{fig:vortices}
+\end{figure}
+
+}
+
+\frame
+{
+  \frametitle{Results: Energy}
+
+\begin{figure}[H]
+\includegraphics[scale=0.3]{vortices/run1/energies}
+\centering
+\caption{A plot of the energy residual of the system against time. }
+\centering
+\label{fig:error-N}
+\end{figure}
+
+}
+
+\frame
+{
+  \frametitle{Summary and Outlook}
+
+  \begin{itemize}
+  \item The motivation was to look for a new Lagrangian method for solving fronts in weather forecasting. 
+ 
+  \item We have looked at setting out a potential new timestepping method for the incompressible Euler equations that involves optimal transport and a constrained symplectic algorithm. 
+  
+  \item We have discussed some background to the method, as well as established its performance visually using a couple of examples.
+  
+  \item Our method gets rid of the need for the tuning of the parameter \(\epsilon\) from the method proposed by \cite{gallouet2016lagrangian}, and seems to compare favourably.
+  
+  \item Ultimately, we would look to implement our method for the full Eady model problem and see how it compares to the Eulerian solution.
+  
+  \end{itemize}
+}
+
+\frame
+{
+  \frametitle{References}
+  \bibliography{mres-presentation}
+}
+
+
+\end{document}
