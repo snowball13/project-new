@@ -137,7 +137,7 @@ B_i &:= \frac{1}{\Leb(L_i)} \int_{L_i} x \: \mathrm{d}x, \quad i = 1,\dots,N.
 
 We note that finding the \(\psi\)'s that satisfy equation (12) is equivalent to solving a linear program, that can be solved using the simplex algorithm that is \(\mathcal{O}(N^3\log N)\). \cite{gallouet2016lagrangian} instead used a damped Newton algorithm \citep{merigot2017algorithm}, an efficient iterative method that we also implement and hope will be much faster. This algorithm, together with equations (13, 14) above, are implemented in a code library \citep{merigotpymongeampere}, which is used in \cite{gallouet2016lagrangian}. 
 
-\cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise (7, 8) in time. For intial conditions \((m^0, u^0) \in \MN \times \MN \), the algorithm is as follows:
+\cite{gallouet2016lagrangian} used a symplectic method (symplectic Euler) to discretise (7, 8) in time. For initial conditions \((m^0, u^0) \in \MN \times \MN \), the algorithm is as follows:
 \begin{flalign*}
  & \quad
  \begin{cases}
@@ -260,7 +260,7 @@ c := 2 \; d^2_\Sb (m^0)
 \end{align}
 (see Section 4: Results). The reason being that the system was being over-constrained, as the particles can actually get closer to incompressible than the constraint would allow. In Algorithm 1, the \(b^n\) term can be noisy, and so we do not wish to nudge the particles in a noisy direction every timestep.
 
-This motivated us to present an different formulation, where the algorithm incorporates an inequality constrain instead of the equality constraint seen in Algorithm 1, so that we just desire that the particle positions lie within the the tolerance \(c\) from incompressible. Thus, our problem is
+This motivated us to present an different formulation, where the algorithm incorporates an inequality constraint instead of the equality constraint seen in Algorithm 1, so that we just desire that the particle positions lie within the tolerance \(c\) from incompressible. Thus, our problem is
 \begin{align}
  &\begin{cases}
   \dot{m} = u \\
@@ -324,7 +324,7 @@ Pseudo-Code for Algorithm 2:
 \label{fig:h-lambda}
 \end{figure}
 
-In this section we present numerically calculated convergence results of our method detailed in Algorithm 2, with the computer code written in Python based on the psuedo-code for Algorithm 2 detailed in Section 3, utilising the code-library of \cite{gallouet2016lagrangian} \citep{merigotpymongeampere}. We also present comparisons with the code of \cite{gallouet2016lagrangian}, as well as displaying some results of our method when applied to a more complex example.
+In this section we present numerically calculated convergence results of our method detailed in Algorithm 2, with the computer code written in Python based on the pseudo-code for Algorithm 2 detailed in Section 3, utilising the code-library of \cite{gallouet2016lagrangian} \citep{merigotpymongeampere}. We also present comparisons with the code of \cite{gallouet2016lagrangian}, as well as displaying some results of our method when applied to a more complex example.
 
 We first look at the relationship between the initial distance from incompressible (c value) and the number of particles used for the initialisation of the model (N value). Recall that the initial configuration of particles \(m^0\) is found using a version of Lloyd's algorithm \citep{merigot2017algorithm}, an iterative algorithm that initially randomly chooses a configuration of the particles in the domain, calculates the Laguerre cells for each particle so that (12) is satisfied, and "moves" the particles to that each is set as the centroid of its respective cell, before the process is repeated. We then set \(c = d^{2}_{\mathbb{S}}(m^{0})\) as described in equation (26), so that \(c\) is the squared distance that the initial configuration was from being incompressible. Figure \ref{fig:c-N} shows that \(c \propto 1/N\) i.e. an inversely proportional relationship. This indicates that as we increase the number of particles used for our run, the error from being incompressible upon setup decreases linearly.
 
