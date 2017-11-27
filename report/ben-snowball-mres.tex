@@ -43,7 +43,7 @@
 
 
 
-\title{MRes Report}
+\title{Lagrangian Particle Methods for Incompressible Flows}
 \author{Ben Snowball}
 %\date{}							% Activate to display a given date or no date
 
@@ -55,7 +55,7 @@
 \maketitle
 \section{Introduction}
 
-\cite{hoskins1971atmospheric} introduced the the semi-geostrophic (SG) equations, an asymptotic limit as the Rossby number tends to \(0\) and the Froude number to \(\mathcal{O}(1)\) of the incompressible Euler-Boussinesq equations. \cite{cullen1993geometric} considered looking at a vertical slice model of these equations (the Eady model) that is used to look at the formation and evolution of weather fronts, by using a coordinate transformation to give an optimal transport interpretation of the SG equations (for further information on this, see \cite{cullen2006mathematical}).
+\cite{hoskins1971atmospheric} introduced the the semi-geostrophic (SG) equations, an asymptotic limit as the Rossby number tends to \(0\) and the Froude number to \(\mathcal{O}(1)\) of the incompressible Euler-Boussinesq equations. \cite{shutts1987parcel} considered looking at a vertical slice model of these equations (the Eady model) that is used to look at the formation and evolution of weather fronts, by using a coordinate transformation to give an optimal transport interpretation of the SG equations (for further information on this, see \cite{cullen2006mathematical}).
 
 \cite{visram2014framework} then compared the SG numerics with the standard Eady-Boussinesq numerics, and found that the standard Boussinesq solution does not go to the SG solution as the Rossby number tends to \(0\). They hypothesised that the standard numerics are going to the wrong solution due to numerical dissipation. This was the motivation to then look at a new Lagrangian method for this frontal problem in weather forecasting, to see if that will lead to a solution that will tend to the SG solution. 
 
@@ -412,7 +412,6 @@ We also look at comparing these results with that of \cite{gallouet2016lagrangia
 \begin{align}
 E^n = \frac{1}{N} \Big( \sum_{p = 1}^{N} \frac{1}{2} || u^n_{(p)} ||^2 + \frac{1}{2 \epsilon^2} d^2_{\Sb}(m^n) \Big) 
 \end{align} 
-[I know that the final term is wrong here, but I am struggling to think of how to write it.]
 which is the Lagrangian approximation of the integral of the modified Hamiltonian given in equation (9) over the whole domain \(\Omega\). The energy at timestep \(n\) in figure \ref{fig:beltrami-flow-energies-q-ke} is simply just the kinetic energy of the system, i.e.
 \begin{align}
 E^n = \frac{1}{N} \sum_{p = 1}^{N} \frac{1}{2} || u^n_{(p)} ||^2
