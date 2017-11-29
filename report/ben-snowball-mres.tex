@@ -50,9 +50,22 @@
 
 \begin{document}
 
-
-
 \maketitle
+
+Submitted to Imperial College London and the University of Reading in fulfilment of the requirements for the Degree of Master by Research.
+
+I also declare that the work in this report has not been submitted for a higher degree at any other university or institution.
+
+\newpage
+\begin{abstract}
+\cite{visram2014framework} compared the semi-geostrophic numerics with the standard Eady-Boussinesq numerics when looking at a frontal formation example, and found that the standard Boussinesq solution does not go to the semi-geostrophic solution as the Rossby number tends to \(0\). They hypothesised that the standard numerics are going to the wrong solution due to numerical dissipation. The aim of the work in this report was to construct a new Lagrangian based approach for this frontal problem in weather forecasting, utilising the work of \cite{gallouet2016lagrangian}, that removes the need for artificial compressibility, and instead implements a timestepping algorithm that incorporates an incompressibility constraint. In this report we set out a potential new timestepping method for the incompressible Euler equations that involves optimal transport and a constrained symplectic algorithm. We provide examples of its performance numerically and also compare visually with the method of \cite{gallouet2016lagrangian}. We conclude that our method performs favourably. The next steps would involve implementing our method on the full Eady model problem, to see how our method compares to the  Eulerian solution.
+\end{abstract}
+
+
+\newpage
+\tableofcontents
+
+\newpage
 \section{Introduction}
 
 \cite{hoskins1971atmospheric} introduced the the semi-geostrophic (SG) equations, an asymptotic limit as the Rossby number tends to \(0\) and the Froude number to \(\mathcal{O}(1)\) of the incompressible Euler-Boussinesq equations. \cite{shutts1987parcel} considered looking at a vertical slice model of these equations (the Eady model) that is used to look at the formation and evolution of weather fronts, by using a coordinate transformation to give an optimal transport interpretation of the SG equations (for further information on this, see \cite{cullen2006mathematical}).
@@ -313,7 +326,7 @@ We begin this section by presenting graphs of the function \(h\) (equation (28) 
 
 Recall that in order to find the Lagrange multiplier for the first half-step of the RATTLE portion \(\lambda^n\), we have to solve \(h(\lambda^n) = 0\), where
 \begin{align}
- h(\lambda) := d^{2}_{\Sb}(m^n + \dt \; u^n - \frac{\dt}{2} \lambda b^n) - c
+ h(\lambda) := d^{2}_{\Sb}(m^n + \dt \; u^n - \frac{\dt}{2} \lambda \; \nabla d^2_\Sb(m^n)) - c
 \end{align}
 In figure \ref{fig:g-lambda} we plot the graph of \(h(\lambda) + c\) for various \(\lambda\) values at two timesteps of a run of a Beltrami flow example. We see that the graphs looks very smooth and similar to a quadratic, implying that we only have a maximum of two roots for \(h\), depending on our choice of the parameter \(c\), which would simply shift the graphs up or down the \(y\)-axis.
 
