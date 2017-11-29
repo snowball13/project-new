@@ -150,20 +150,24 @@ It follows \(\dsmsq = 0\) is equivalent to the configuration \(m \in \M\) being 
 
 \frame
 {
-  \frametitle{Discretising our Function Space}
-  
-[Include picture]  
+  \frametitle{Discretising our Function Space}  
 
 We can discretise \(\M\) into piecewise constant functions, constant on each subdomain \(\omega_i\) of a partition of \(\Omega\)
 \[ 
 \MN := \Big\{ \phi \: : \: \Omega \to \R^n \quad | \quad \phi | _{\omega_i} \text{ is constant, } i = 1,\dots,N \Big\}
 \]
 
+\begin{figure}[H]
+\includegraphics[scale=0.3]{images/discretising}
+\centering
+\label{fig:discretising}
+\end{figure}
+
 }
 
 \frame
 {
-  \frametitle{Hamiltonian}
+  \frametitle{Hamiltonian Approach}
 
 The Hamiltonian approach for solving the problem is then: choose a set of variables \((m, u) \in \MN \times \MN \) that satisfy Hamilton's equations
 \begin{align} 
@@ -287,7 +291,7 @@ Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. 
   \frametitle{Our Modified RATTLE Algorithm}
 
 \begin{flalign*}
- & \quad \text{IF } (m^n + \dt \; u^n < c) && \\
+ & \quad \text{IF } (d^2_\Sb(m^n + \dt \; u^n) < c) && \\
  & \quad \quad \text{set } m^{n+1} = m^n + \dt \; u^n, \: \: u^{n+1} = u^n \\
  & \quad \text{ELSE } \\
  & \quad \quad \begin{cases}
@@ -376,7 +380,7 @@ Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. 
 \begin{figure}[H]
 \includegraphics[scale=0.3]{beltrami-square-rattle/error-N}
 \centering
-\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (\(\dt = 0.004167\)) against \(N\) on a log-log plot [black crosses], using our new method (Algorithm 2). Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line]. 
+\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (\(\dt = 0.004167\)) against \(1/N\) on a log-log plot [black crosses], using our new method. Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line]. 
 We see that \(\text{e}_{rr} \propto 1/N^{2.86}\), where \(\text{e}_{rr}\) is the \(L^2\mathrm{-error}\) over all particles: \(\text{e}_{rr} = \Big( \frac{1}{N} \sum_{p = 1}^{N} || u^{n_T}_{(p)} - U(m^{n_T}_{(p)}) ||^2 \Big) ^\frac{1}{2}\), where \(m^{n_T}_{(p)}, u^{n_T}_{(p)}\) are the position and corresponding velocity of the particle \(p\) after \(n_T\) timesteps.}
 \centering
 \label{fig:error-N}
