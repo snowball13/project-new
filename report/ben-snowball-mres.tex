@@ -252,7 +252,7 @@ Pseudo-Code for Algorithm 1:
 & \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1} \nonumber
 \end{flalign}
 
-Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of \(h\) does not exist - in fact, \cite{gallouet2016lagrangian} showed that the first derivative of \(d^2_\Sb(\cdot)\) only exists almost everywhere. Instead, we use a black-box type of algorithm that is derivative-free. Plotting the function \(h(\lambda^n)\) for various timesteps, we see that the behaviour of \(h\) is actually quite pleasant and that we only have a maximum of two roots for \(h\) (instead of potentially an oscillating function with many roots) (see figure \ref{fig:h-lambda}). Thus, we can find a physical root for \(h\) quite easily. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method. 
+Newton was found to be ineffective for solving \(h(\lambda^n) = 0\) for \(\lambda^n\) as the second derivative of \(h\) does not exist - in fact, \cite{gallouet2016lagrangian} showed that the first derivative of \(d^2_\Sb(\cdot)\) only exists almost everywhere. Instead, we use a black-box type of algorithm that is derivative-free. Plotting the function \(h(\lambda^n) + c\) for various timesteps, we see that the behaviour of \(h\) is actually quite pleasant and that we only have a maximum of two roots for \(h\) (instead of potentially an oscillating function with many roots) (see figure \ref{fig:g-lambda}) depending on our choice of the parameter \(c\). Thus, we can find a physical root for \(h\) quite easily. In this case, as this is a 1-dimensional problem, we use SciPy's optimize.root() method. 
 
 Upon using this algorithm on the Beltrami flow example, we found that it did not behave as desired if we increased the tolerance of the constraint, i.e. set
 \begin{align}
@@ -304,29 +304,37 @@ Pseudo-Code for Algorithm 2:
 & \quad \quad \quad \text{Set } u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} b^{n+1} \nonumber
 \end{flalign}
 
+Here, the "if" statement handles the inequality constraint, where if our updated positions of the particles are such that the distance squared to incompressible is less than our constraint \(c\), then we move on. Else, we use the RATTLE algorithm as in Algorithm 1 with the equality constraint of \(d^2_\Sb(m^{n+1}) = c\) at each time step.
+
 
 \section{Results}
+
+We begin this section by presenting graphs of the function \(h\) (equation (28) in Algorithm 1 and (31) in Algorithm 2) to demonstrate our comments regarding this function from Section 3. In the rest of this section we present numerically calculated convergence results of our method detailed in Algorithm 2, with the computer code written in Python based on the pseudo-code for Algorithm 2 detailed in Section 3, utilising the code-library of \cite{gallouet2016lagrangian} \citep{merigotpymongeampere}. We also present comparisons with the code of \cite{gallouet2016lagrangian}, as well as displaying some results of our method when applied to a more complex example.
+
+Recall that in order to find the Lagrange multiplier for the first half-step of the RATTLE portion \(\lambda^n\), we have to solve \(h(\lambda^n) = 0\), where
+\begin{align}
+ h(\lambda) := d^{2}_{\Sb}(m^n + \dt \; u^n - \frac{\dt}{2} \lambda b^n) - c
+\end{align}
+In figure \ref{fig:g-lambda} we plot the graph of \(h(\lambda) + c\) for various \(\lambda\) values at two timesteps of a run of a Beltrami flow example. We see that the graphs looks very smooth and similar to a quadratic, implying that we only have a maximum of two roots for \(h\), depending on our choice of the parameter \(c\), which would simply shift the graphs up or down the \(y\)-axis.
 
 \begin{figure}[H]
    \begin{subfigure}[t]{0.4\textwidth}
         \centering
-	\includegraphics[scale=0.3]{rattle-test/hvals000}
-        \caption{} \label{fig:h-lambda-000}
+	\includegraphics[scale=0.3]{rattle-test/gvals000}
+        \caption{} \label{fig:g-lambda-000}
     \end{subfigure}
     \begin{subfigure}[t]{0.4\textwidth}
         \centering
-	\includegraphics[scale=0.3]{rattle-test/hvals009}
-        \caption{} \label{fig:h-lambda-009}
+	\includegraphics[scale=0.3]{rattle-test/gvals009}
+        \caption{} \label{fig:g-lambda-009}
     \end{subfigure}
 \centering
-\caption{Plots of h(\(\lambda\)) as given in equation (31) for \(\lambda\) values \(-5000,-4900,\dots,5000\) at two timesteps of our new method (Algorithm 2), when applied to the Beltrami flow example. (a) After 0 timesteps. (b) After 10 timesteps.}
+\caption{Plots of \(g(\lambda) := h(\lambda) + c\) where \(h\) is defined in equation (32) for \(\lambda\) values \(0, 10, 20, \dots,10000\) at two timesteps of our new method (Algorithm 2), when applied to the Beltrami flow example. (a) After 0 timesteps. (b) After 9 timesteps.}
 \centering
-\label{fig:h-lambda}
+\label{fig:g-lambda}
 \end{figure}
 
-In this section we present numerically calculated convergence results of our method detailed in Algorithm 2, with the computer code written in Python based on the pseudo-code for Algorithm 2 detailed in Section 3, utilising the code-library of \cite{gallouet2016lagrangian} \citep{merigotpymongeampere}. We also present comparisons with the code of \cite{gallouet2016lagrangian}, as well as displaying some results of our method when applied to a more complex example.
-
-We first look at the relationship between the initial distance from incompressible (c value) and the number of particles used for the initialisation of the model (N value). Recall that the initial configuration of particles \(m^0\) is found using a version of Lloyd's algorithm \citep{merigot2017algorithm}, an iterative algorithm that initially randomly chooses a configuration of the particles in the domain, calculates the Laguerre cells for each particle so that (12) is satisfied, and "moves" the particles to that each is set as the centroid of its respective cell, before the process is repeated. We then set \(c = d^{2}_{\mathbb{S}}(m^{0})\) as described in equation (26), so that \(c\) is the squared distance that the initial configuration was from being incompressible. Figure \ref{fig:c-N} shows that \(c \propto 1/N\) i.e. an inversely proportional relationship. This indicates that as we increase the number of particles used for our run, the error from being incompressible upon setup decreases linearly.
+We next look at the relationship between the initial distance from incompressible (c value) and the number of particles used for the initialisation of the model (N value). Recall that the initial configuration of particles \(m^0\) is found using a version of Lloyd's algorithm \citep{merigot2017algorithm}, an iterative algorithm that initially randomly chooses a configuration of the particles in the domain, calculates the Laguerre cells for each particle so that (12) is satisfied, and "moves" the particles to that each is set as the centroid of its respective cell, before the process is repeated. We then set \(c = d^{2}_{\mathbb{S}}(m^{0})\) as described in equation (26), so that \(c\) is the squared distance that the initial configuration was from being incompressible. Figure \ref{fig:c-N} shows that \(c \propto 1/N\) i.e. an inversely proportional relationship. This indicates that as we increase the number of particles used for our run, the error from being incompressible upon setup decreases linearly.
 
 \begin{figure}[H]
 \includegraphics[scale=0.5]{rattle-test/c-N}
@@ -349,7 +357,7 @@ where \(m^{n_T}_{(p)}, u^{n_T}_{(p)}\) are the position and corresponding veloci
 \begin{figure}[H]
 \includegraphics[scale=0.5]{beltrami-square-rattle/error-N}
 \centering
-\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the number of particles used for the initialisation (N values) on a log-log plot [black crosses], using our new method (Algorithm 2). Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line].}
+\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the reciprocal of the number of particles used for the initialisation (1/N) on a log-log plot [black crosses], using our new method (Algorithm 2). Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line].}
 \centering
 \label{fig:error-N}
 \end{figure}
@@ -379,12 +387,12 @@ We next look at comparing the two methods outlined in Section 3 - Algorithm 1 wi
     \end{subfigure}
    \begin{subfigure}[t]{0.25\textwidth}
         \centering
-        \includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=2/035}
+        \includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=2/125}
         \caption{} \label{fig:beltrami-flow-125-e2}
     \end{subfigure}
    \begin{subfigure}[t]{0.25\textwidth}
         \centering
-	\includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=2/040}
+	\includegraphics[scale=0.2]{beltrami-square-rattle-equality/N=1000-endt=1-nt=250-dt=0.004-c_scaling=2/249}
         \caption{} \label{fig:beltrami-flow-249-e2}
     \end{subfigure}
    \begin{subfigure}[t]{0.25\textwidth}
