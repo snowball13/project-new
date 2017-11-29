@@ -74,7 +74,7 @@ I also declare that the work in this report has not been submitted for a higher 
 
 This report is a first step in this direction. The main contribution is the construction of a version of an algorithm using the work of \cite{gallouet2016lagrangian} that avoids issues with artificial compressibility. The ultimate aim is to apply the method to the model, and see how it compares to the Eulerian solution.
 
-In Section 2 of this report, we provide some background on the optimal transport approach and a symplectic timestepping method that will be part of our new method. In Section 3 we propose the method, and detail how our program works when applied to two examples: a simple Beltrami flow in a unit square, and a situation of a number of vortices placed in a unit square. We then in Section 4 present some results and finally give an outlook on where this work can head next in Section 5.
+In Section 2 of this report, we provide some background on the optimal transport approach and a symplectic timestepping method that will be part of our new method, while in Section 3 we propose the method in full. In Section 4 we show some results for how our program performs when applied to two examples: a simple Beltrami flow in a unit square, and a situation of a number of vortices placed in a unit square. Finally we provide a summary of this report and give an outlook on where this work can head next in Section 5.
 
 
 \section{Background}
@@ -120,7 +120,7 @@ where \(\nabla p = \frac{\graddsmsq}{2\epsilon^2}\). Here, \(\epsilon\) is the s
 \begin{align} 
 H(m, u) &= \frac{1}{2} ||u||^2_{L^2} + \frac{\dsmsq}{2\epsilon^2}.
 \end{align}
-Conserving the Hamiltonian keeps the system close to incompressible when \(\epsilon\) is small,  stiff spring. 
+When \(\epsilon\) is small, representing a stiff spring, conserving the Hamiltonian keeps the system close to incompressible.
 
 From \cite{gallouet2016lagrangian}, a calculatable formula for \(\graddsmsq\) exists. First, we introduce the definition of a Laguerre diagram and briefly explain the projections used as part the formula. Let \(M = (M_1,\dots,M_N), \text{ where } M_i \in \R^n, \psi = (\psi_1,\dots,\psi_N), \text{ where } \psi_i \in \R\). The Laguerre diagram is a decomposition of \(\R^2\) into \(N\) convex polyhedra (Laguerre cells) defined by
 \begin{align}
@@ -370,7 +370,7 @@ where \(m^{n_T}_{(p)}, u^{n_T}_{(p)}\) are the position and corresponding veloci
 \begin{figure}[H]
 \includegraphics[scale=0.5]{beltrami-square-rattle/error-N}
 \centering
-\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the reciprocal of the number of particles used for the initialisation (1/N) on a log-log plot [black crosses], using our new method (Algorithm 2). Here we have used 8 N values from 2500 to 20000 in intervals of 2500. Also plotted is a line of slope \(0.35\) on the log-log scale [blue line].}
+\caption{A plot of the final L2-norm error after a run of 0.5s using 120 timesteps (and so a step size of \(\dt = 0.004167\)) against the reciprocal of the number of particles used for the initialisation (1/N) on a log-log plot [black crosses], using our new method (Algorithm 2). Here we have used \(N = 2500,5000,7500,\dots,20000\). Also plotted is a line of slope \(0.35\) on the log-log scale [blue line].}
 \centering
 \label{fig:error-N}
 \end{figure}
