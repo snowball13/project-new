@@ -154,7 +154,7 @@ for some tolerance \(c\), the maximum allowed distance from incompressible.
     \rightbox{96}{
          \section{Our Timestepping Method}
 
-Hamiltonian systems like the Euler equations have a flow that preserves a symplectic structure. The RATTLE algorithm  \citep{leimkuhler1994symplectic} is symplectic (thus it has better long-term stability properties \citep{okunbor1992explicit}), and incorporates a holonomic constraint on the system (i.e. like the constraint we have). Thus we use this as part of our timestepping method, given as follows:
+Hamiltonian systems like the Euler equations have a flow that preserves a symplectic structure. The RATTLE algorithm  \citep{leimkuhler1994symplectic} is symplectic (thus it has better long-term stability properties \citep{okunbor1992explicit}), and incorporates a holonomic constraint on the system (i.e. like the constraint we have). Thus we use this as part of our timestepping method to solve the constrained system (2), given as follows:
 \begin{flalign*}
  & \text{IF } (d^2_\Sb(m^n + \dt \; u^n) < c) && \\
  & \quad \quad \text{set } m^{n+1} = m^n + \dt \; u^n, \: \: u^{n+1} = u^n \\
