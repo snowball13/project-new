@@ -1,0 +1,270 @@
+\documentclass{imposter}
+%\documentclass[landscape]{imposter}
+
+
+
+%\usepackage{geometry}                		% See geometry.pdf to learn the layout options. There are lots.
+%\geometry{landscape}                		% Activate for rotated page geometry
+\usepackage[parfill]{parskip}    		% Activate to begin paragraphs with an empty line rather than an indent
+%\usepackage{graphicx}				% Use pdf, png, jpg, or eps§ with pdflatex; use eps in DVI mode
+								% TeX will automatically convert eps --> pdf in pdflatex		
+								
+								
+\usepackage{wrapfig}								
+\usepackage[font=scriptsize,labelfont=bf]{caption}
+\usepackage[font=scriptsize]{subcaption}
+\usepackage{float}
+\graphicspath{ {images/poster-eps/} }
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{bbm}
+
+%SetFonts
+
+%SetFonts
+
+\usepackage{natbib}
+\usepackage{url}
+\bibliographystyle{abbrv}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\MN}{\mathbb{M}_N}
+\newcommand{\LN}{\mathbb{L}_N}
+\newcommand{\dsm}{d_\mathbb{S}(m)}
+\newcommand{\dsmsq}{d^{2}_{\mathbb{S}}(m)}
+\newcommand{\graddsmsq}{\nabla{d^{2}_{\mathbb{S}}(m)}}
+\newcommand{\eone}{\hat{e}_1}
+\newcommand{\etwo}{\hat{e}_2}
+\newcommand{\bt}{\tilde{b}}
+\newcommand{\pt}{\tilde{p}}
+\newcommand{\dt}{\Delta t}
+\newcommand{\M}{\mathbb{M}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Sb}{\mathbb{S}}
+\newcommand{\Ps}{\mathbb{P}_{\mathbb{S}}}
+\newcommand{\Pm}{\mathbb{P}_{\mathbb{M}_N}}
+\newcommand{\Leb}{\mathrm{Leb}}
+\newcommand{\DmDt}{\frac{\mathrm{D}m}{\mathrm{D}t}}
+\newcommand{\DuDt}{\frac{\mathrm{D}u}{\mathrm{D}t}}
+
+
+
+\usepackage{listings}
+
+\title{Lagrangian Particle Methods for Incompressible Flows}
+\author{Ben Snowball (Supervisor: Colin Cotter)}
+\department{Department of Mathematics, MPE CDT}
+\institution{Imperial College London}
+
+%% Primary university logo.
+%\logo{imperial.eps}
+% Secondary logos (not supported in all poster styles)
+%\logoa{AMCG.eps}
+
+%% Options to set colors of multiple poster features.
+\titlecolor{named}{Blue}
+\postercolor{named}{Blue}
+%\pagecolor{green}
+
+\posterstyle{mpecdtstyle}
+
+
+% This sets up boxes to have nice rounded corners and somewhat thicker lines
+% than the default.
+\psset{linecolor=postercolor,linewidth=.2,cornersize=absolute,linearc=0.5,framesep=0.5}
+
+
+
+\begin{document}
+%\showgrid
+
+% LHS
+
+  \leftbox{96}{
+        \section{Abstract}
+        
+The semi-geostrophic numerics were compared with the standard Eady-Boussinesq numerics when looking at a frontal formation example, and it was found that the standard Boussinesq solution does not go to the SG solution as the Rossby number tends to \(0\) \cite{visram2014framework}. It was hypothesised this was due to numerical dissipation. The aim of this work was to construct a new Lagrangian based approach for this frontal problem in weather forecasting, utilising the work in \cite{gallouet2016lagrangian}, that removes the need for artificial compressibility, and instead implements a timestepping algorithm that incorporates an incompressibility constraint.
+
+    }
+    
+    
+  \leftbox{79}{
+      \section{Optimal Transport Approach}
+      
+\subsection{Incompressibility Constraint}
+      
+Recall that the Euler equations describe fluid particle motion under an incompressibility constraint. It follows \(\dsmsq = 0\) is equivalent to the configuration \(m \in \M\) being incompressible, where, for some domain \(\Omega \subset \R^n\):
+
+\begin{itemize}
+
+\item \(\M := L^2(\Omega)\)
+
+\item \(\Sb := \Big\{ \: s \in \M \quad | \quad s_{\#}\Leb(A) := \Leb(s^{-1}(A)) = \Leb(A) \quad \forall A \subset \Omega \Big\}\)
+
+\item \(\dsmsq := \min_{s \in \mathbb{S}} \int_\Omega || m(a) - s(a) ||^2 \: \mathrm{d}^2 a, \quad m \in \M\).
+
+\end{itemize}
+
+
+\subsection{Discretisation}
+
+\begin{wrapfigure}{R}{0.3\textwidth}
+ \centering
+\includegraphics[scale=0.5]{discretising}
+ \centering
+ \captionsetup{width=.7\linewidth}
+\caption{Representation of the discretised space satisfying the criteria, with each point (particle) representing the centre of mass of each subdomain cell (Laguerre cell).}
+\label{fig:discretising}
+\end{wrapfigure}
+
+We can discretise \(\M\) into piecewise constant functions, constant on each subdomain \(\omega_i\) of a partition of \(\Omega\), naming this subspace \(\MN\), such that the subdomains satisfy two criteria: 1) they are of equal size; 2) have bounded diameters.
+
+
+\subsection{Hamiltonian Approach}
+The Hamiltonian approach for solving the problem is then: choose a set of variables \((m, u) \in \MN \times \MN \) that satisfy Hamilton's equations
+\begin{align} 
+\dot{m} &= u, \quad \dot{u} = - \nabla p
+\end{align}
+where \(\nabla p = \frac{\graddsmsq}{2\epsilon^2}\). Here, \(\epsilon\) is the spring parameter.
+
+A proposition was presented in \cite{gallouet2016lagrangian} that says for any \(m \in \MN\) there exists Laguerre cells around each particle \(M_i := m(\omega_i) \in \R^n \text{ for } i = 1,\dots,N\) such that they meet the criteria above. The proposition also provides calculatable formulae for \(\dsmsq\) and \(\graddsmsq\).
+
+
+\subsection{A Problem...}
+
+The term \(\frac{\dsmsq}{2\epsilon^2}\) is used to add in a form of pseudo-compressibility to the system, so that taking the limits \(N \to \infty, \: \epsilon \to 0 \: \implies \) incompressible. However, we found that the parameter \(\epsilon\) is hard to tune. The subsequent goal was to then find a timestepping method where we replace pseudo-compressibility by an incompressibility constraint.
+
+    }
+    
+    \leftbox{18}{
+    \section{Reframing as a Constrained System}
+
+The incompressible continuous Euler equations can be framed using a Lagrange multiplier and the constraint \(\dsmsq = 0\). Restricting \(m\) to be in \(\MN\) would mean we cannot enforce the constraint. Thus, we use an inequality constraint on the system:
+\begin{align}
+ &\begin{cases}
+  \dot{m} = u \\
+  \dot{u} = \lambda \graddsmsq, \quad \lambda = \lambda(t) \text{ a Lagrange multiplier enforcing } \dsmsq \le c.
+ \end{cases} 
+\end{align}
+for some tolerance \(c\), the maximum allowed distance from incompressible.
+    }
+    
+    
+    % RHS
+    \rightbox{96}{
+         \section{Our Timestepping Method}
+
+Hamiltonian systems like the Euler equations have a flow that preserves a symplectic structure. The RATTLE algorithm  \citep{leimkuhler1994symplectic} is symplectic (thus it has better long-term stability properties \citep{okunbor1992explicit}), and incorporates a holonomic constraint on the system (i.e. like the constraint we have). Thus we use this as part of our timestepping method, given as follows:
+\begin{flalign*}
+ & \text{IF } (d^2_\Sb(m^n + \dt \; u^n) < c) && \\
+ & \quad \quad \text{set } m^{n+1} = m^n + \dt \; u^n, \: \: u^{n+1} = u^n \\
+ & \text{ELSE } \\
+ & \quad \begin{cases}
+  m^{n+1} = m^{n} + \dt \; u^{n+1/2}  \\
+  u^{n+1/2} = u^n - \frac{\dt}{2} \lambda^n \nabla{d^{2}_{\Sb}(m^n)}, \\
+  \nabla{d^{2}_{\Sb}(m^{n+1})} - c = 0
+ \end{cases}
+ \begin{cases}
+  u^{n+1} = u^{n+1/2} - \frac{\dt}{2} \hat{\lambda}^{n+1} \nabla{d^{2}_{\Sb}(m^{n+1})} \\
+  u^{n+1} \cdot \nabla{d^{2}_{\Sb}(m^{n+1})} = 0.
+ \end{cases} 
+\end{flalign*}
+         
+    }
+    
+     \rightbox{71.5}{
+         \section{Results}
+
+\begin{figure}[H]
+     \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.5]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/000}
+        \caption{} \label{fig:beltrami-flow-000-q}
+    \end{subfigure}
+    \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.5]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/125}
+        \caption{} \label{fig:beltrami-flow-125-q}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.5]{beltrami-square/RT-N=1000-tmax=1-nt=250-eps=0.1/249}
+        \caption{} \label{fig:beltrami-flow-249-q}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.5]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/000}
+        \caption{} \label{fig:beltrami-flow-000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.5]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/125}
+        \caption{} \label{fig:beltrami-flow-125}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.5]{beltrami-square-rattle/N=1000-endt=1-nt=250-dt=0.004-c_scaling=1/249}
+        \caption{} \label{fig:beltrami-flow-249}
+    \end{subfigure}
+\centering
+\caption{\(N = 1000, \: \dt = 0.004s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions using the method of \cite{gallouet2016lagrangian}. ((a) Initial positions, (b) after 125 timesteps, (c) after 249 timesteps). (d), (e), (f) Using our new method. Each particle is initialised with a position \(m^0\) and velocity \(u^0 = \big( -\cos(m^0_0 \pi) \sin(m^0_1 \pi), \: \: \sin(m^0_0 \pi) \cos(m^0_1 \pi) \big) \) where \(m_0, \: m_1\) are the horizontal and vertical components of the position \(m\) respectively.}
+\centering
+\label{fig:beltrami-flow}
+\end{figure}
+
+\begin{figure}[H]
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.5]{vortices/run1/000}
+        \caption{} \label{fig:vortices-000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.5]{vortices/run1/1000}
+        \caption{} \label{fig:vortices-1000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+	\includegraphics[scale=0.5]{vortices/run1/1900}
+        \caption{} \label{fig:vortices-1900}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.5]{vortices/run1/quiver0}
+        \caption{} \label{fig:vortices-quiver0}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.5]{vortices/run1/quiver1000}
+        \caption{} \label{fig:vortices-quiver1000}
+    \end{subfigure}
+   \begin{subfigure}[t]{0.25\textwidth}
+        \centering
+        \includegraphics[scale=0.5]{vortices/run1/quiver1900}
+        \caption{} \label{fig:vortices-quiver1900}
+    \end{subfigure}
+\centering
+\caption{\(N = 2000\), \(\dt = 0.0005s\). (a), (b), (c) Three snapshots of the Laguerre cells along with their centres (coloured dots) indicating the particle positions. ((a) Initial positions, (b) after 1000 timesteps, (c) after 1900 timesteps). (d), (e), (f) Same three snapshots of the velocities using quiver plots.}
+\centering
+\label{fig:vortices}
+\end{figure}
+         
+    }
+    
+    
+     \rightbox{28}{
+      \section{Summary}
+      
+We have looked at setting out a potential new timestepping method for the incompressible Euler equations that involves optimal transport and a constrained symplectic algorithm. Our method gets rid of the need for the tuning of the parameter \(\epsilon\) from the method proposed in \cite{gallouet2016lagrangian}, and seems to compare favourably. Ultimately, we would look to implement our method for the full Eady model problem and see how it compares to the Eulerian solution.
+  
+    }
+   
+
+    
+%Also do graphics.
+    \rightbox{14}{
+        {\footnotesize\bibliography{mres-presentation}}
+    }
+
+
+\end{document}
